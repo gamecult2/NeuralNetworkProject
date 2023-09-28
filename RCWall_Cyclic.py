@@ -12,7 +12,7 @@ def RebarArea(RebarDiametermm):
     a = 3.1416 * r ** 2  # compute area
     return a
 
-def generate_cyclic_load(duration=12.0, sampling_rate=200, max_displacement=40):
+def generate_cyclic_load(duration=12.0, sampling_rate=200, max_displacement=35):
     # Generate a constant time array
     t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
 
