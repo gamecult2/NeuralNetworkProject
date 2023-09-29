@@ -20,7 +20,16 @@ num_features = 1
 po_sequence_length = 100
 
 X = np.random.uniform(0, 1, size=(num_samples, num_parameters)).astype(np.float32).round(5)
-y = np.random.uniform(0, 1, size=(num_samples, po_sequence_length))
+# y = np.random.uniform(0, 10, size=(num_samples, po_sequence_length))
+
+# Generate linearly spaced displacement values
+displacement = np.linspace(0, 10, po_sequence_length)
+
+# Generate multiple curves resembling pushover analysis results
+y = np.array([
+    np.random.uniform(0.5, 2) * np.sin(np.random.uniform(0.1, 0.5) * displacement) * np.exp(-0.1 * (displacement - np.random.uniform(2, 8))**2)
+    for _ in range(num_samples)])
+
 
 # Split the data into training, validation, and test sets
 X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -40,12 +49,12 @@ X_test = scaler.transform(X_test)
 # Define your LSTM-based neural network architecture using the Functional API
 # Layer 1
 input_layer = Input(shape=(num_parameters, num_features), name='parameters_input')
-lstm_layer1 = Dense(64, activation='relu')(input_layer)
-lstm_layer2 = Dense(64, activation='relu')(lstm_layer1)
-flat1 = Flatten()(lstm_layer2)
+lstm_layer1 = LSTM(64, return_sequences=True)(input_layer)
+lstm_layer2 = LSTM(32, return_sequences=True)(lstm_layer1)
+# flat1 = Flatten()(lstm_layer2)
 
 # Output layer for displacement
-output_layer = Dense(po_sequence_length)(flat1)
+output_layer = LSTM(po_sequence_length, return_sequences=True)(lstm_layer2)
 
 model = Model(inputs=input_layer, outputs=output_layer)
 
@@ -60,7 +69,7 @@ history = model.fit(
     X_train,  # Input layer (GMA + STRUCTURAL PARAMETERS)
     y_train,  # Output layer (DISPLACEMENT)
     epochs=100,
-    batch_size=8,
+    batch_size=16,
     validation_split=0.2,
     verbose=1  # checkpoint_callback or early_stopping
     )
