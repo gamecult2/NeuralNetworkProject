@@ -8,8 +8,7 @@ import math
 
 
 def RebarArea(RebarDiametermm):
-    r = (RebarDiametermm / 2)
-    a = 3.1416 * r ** 2  # compute area
+    a = 3.1416 * (RebarDiametermm / 2) ** 2  # compute area
     return a
 
 def generate_cyclic_load(duration=12.0, sampling_rate=200, max_displacement=35):

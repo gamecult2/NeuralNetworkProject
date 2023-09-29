@@ -4,7 +4,7 @@ sys.path.append('Result_files')
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from ANNOpenSees import Module as MO
+from BackUp import Module as MO
 
 # Unite
 m = 1.0  # Meters
