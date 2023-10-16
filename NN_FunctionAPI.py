@@ -42,12 +42,12 @@ X_acceleration_train, X_acceleration_test, X_influencing_train, X_influencing_te
 # Build the neural network model using functional API
 # Layer 1
 acceleration_input = Input(shape=(gma_sequence_length, num_features), name='acceleration_input')
-lstm_layer = LSTM(64, return_sequences=True)(acceleration_input)  # LSTM layer for acceleration
+lstm_layer = LSTM(gma_sequence_length, return_sequences=True)(acceleration_input)  # LSTM layer for acceleration
 flat1 = Flatten()(lstm_layer)
 
 # Layer 2
 parameters_input = Input(shape=(st_sequence_length,), name='parameters_input')
-dense_layer = Dense(32)(parameters_input)  # Dense layer for influencing parameters
+dense_layer = Dense(gma_sequence_length)(parameters_input)  # Dense layer for influencing parameters
 flat2 = Flatten()(dense_layer)
 
 # Merge the 2 inputs layer with concatenate LSTM and Dense layers
