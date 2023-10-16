@@ -3,7 +3,6 @@ from Units import *
 import random
 import csv
 
-
 def generate_cyclic_load(duration=10, sampling_rate=50, max_displacement=65):
     # Generate a constant time array
     t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
