@@ -17,7 +17,7 @@ def Dazio_WSH2():
     lweb = lw - (2 * lbe)
 
     # Material proprieties
-    fc = -40.5 * MPa  # Concrete peak compressive stress (+Tension, -Compression)
+    fc = 40.5 * MPa  # Concrete peak compressive stress (+Tension, -Compression)
     fy = 583.1 * MPa  # Steel tension yield strength (+Tension, -Compression)
     Ec = 37.1 * GPa
 
@@ -78,7 +78,7 @@ def Thomsen_and_Wallace_RW2():
     lweb = lw - (2 * lbe)
 
     # Material proprieties
-    fc = -41.7 * MPa  # Concrete peak compressive stress (+Tension, -Compression)
+    fc = 41.7 * MPa  # Concrete peak compressive stress (+Tension, -Compression)
     fy = 414 * MPa  # Steel tension yield strength (+Tension, -Compression)
 
     bereinfNum = 8  # BE long reinforcement diameter (mm)
@@ -154,7 +154,7 @@ def Greifenhagen_M3():
     lweb = lw - (2 * lbe)
 
     # Material proprieties
-    fc = -21.0 * MPa  # Concrete peak compressive stress (+Tension, -Compression)
+    fc = 21.0 * MPa  # Concrete peak compressive stress (+Tension, -Compression)
     fy = 504 * MPa  # Steel tension yield strength (+Tension, -Compression)
 
     bereinfNum = 1  # BE long reinforcement diameter (mm)
@@ -176,8 +176,8 @@ def Greifenhagen_M3():
     return tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, DisplacementStep
 
 
-# validation_model = Thomsen_and_Wallace_RW2()
-validation_model = Dazio_WSH2()
+validation_model = Thomsen_and_Wallace_RW2()
+# validation_model = Dazio_WSH2()
 # validation_model = Greifenhagen_M3()
 tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, DisplacementStep = validation_model
 

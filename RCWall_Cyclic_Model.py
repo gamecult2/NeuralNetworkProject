@@ -68,8 +68,8 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
     wall_thickness = tw  # Wall thickness
     wall_height = hw  # Wall height
     wall_length = lw  # Wall width
-    length_be = lbe
-    length_web = lweb = lw - (2 * lbe)
+    length_be = lbe  # Length of the Boundary Element
+    length_web = lweb = lw - (2 * lbe)  # Length of the Web
 
     # ----------------------------------------------------------------------------------------
     # Discretization of the wall geometry
@@ -194,10 +194,8 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
 
     ops.uniaxialMaterial('Concrete07', 3, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)
     ops.uniaxialMaterial('Concrete07', 4, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)
-    print('Concrete07', 3, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)
-    print('Concrete07', 4, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)
-
-    # You can now use these variables to define your uniaxial materials, e.g., Concrete07.
+    # print('Concrete07', 3, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)
+    # print('Concrete07', 4, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)
 
     '''
     # CONCRETE ---------------------------------------------------------------
@@ -237,7 +235,7 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
     global Aload
     # Aload = 0.07 * abs(fc) * tw * lw * loadcoef
     Aload = 0.85 * abs(fc) * tw * lw * loadcoef
-    print('Axial load (kN) = ', Aload / 1000)
+    # print('Axial load (kN) = ', Aload / 1000)
     # ------------------------------------------------------------------------
     #  Calculate the parameters for 'MVLEM' elements
     # ------------------------------------------------------------------------
@@ -247,8 +245,8 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
     # rouYw = rouYw/eleWeb
     # rouYb = 0.030
     # rouYw = 0.0020
-    print('rouYb = ', rouYb)
-    print('rouYw = ', rouYw)
+    # print('rouYb = ', rouYb)
+    # print('rouYw = ', rouYw)
 
     # ------------------------------------------------------------------------
     #  Define 'MVLEM' elements
@@ -262,11 +260,13 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
 
     for i in range(eleH):
         ops.element('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
-        print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
+        # print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
 
-def run_analysis(DisplacementStep, plotPushOverResults=True):
+def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=True):
 
-    print("RUNNING GRAVITY ANALYSIS")
+    if printProgression:
+        print("RUNNING GRAVITY ANALYSIS")
+
     steps = 10
     # ops.recorder('Node', '-file', 'RunTimeNodalResults/Disp.txt', '-closeOnWrite', '-time', '-node', IDctrlNode, '-dof', 2, 'disp')
     # ops.recorder('Node', '-file', 'RunTimeNodalResults/Gravity_Reactions.out', '-time', '-node', *[1], '-dof', *[1, 2, 3], 'reaction')
@@ -283,16 +283,18 @@ def run_analysis(DisplacementStep, plotPushOverResults=True):
     ops.integrator('LoadControl', 1 / steps)
     ops.analysis('Static')
     ops.analyze(steps)
-    print("GRAVITY ANALYSIS DONE!")
 
-    # END OF GRAVITY LOADING ANALYSIS
+    if printProgression:
+        print("GRAVITY ANALYSIS DONE!")
+
     # Keep the gravity loads for further analysis
     ops.loadConst('-time', 0.0)  # hold gravity constant and restart time
 
     # START OF CYCLIC LOADING ANALYSIS
-    print("RUNNING CYCLIC ANALYSIS")
-    tic = time.time()
+    if printProgression:
+        print("RUNNING CYCLIC ANALYSIS")
 
+    tic = time.time()
     ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Horizontal_Reaction.out', '-closeOnWrite', '-node', 1, '-dof', 1, 'reaction')
     ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Horizontal_Displacement.out', '-closeOnWrite', '-node', IDctrlNode, '-dof', 1, 'disp')
 
@@ -302,7 +304,6 @@ def run_analysis(DisplacementStep, plotPushOverResults=True):
     ops.load(IDctrlNode, *[1.0, 0.0, 0.0])  # apply vertical load
 
     ops.constraints('Penalty', 1e20, 1e20)
-    # ops.constraints('Plain')
     ops.numberer('RCM')
     ops.system("BandGeneral")
     ops.test('NormDispIncr', 1e-9, 100, 0)
@@ -325,16 +326,17 @@ def run_analysis(DisplacementStep, plotPushOverResults=True):
 
     maxUnconvergedSteps = 10
     unconvergeSteps = 0
-    NstepsPush = len(DisplacementStep)
+    Nsteps = len(DisplacementStep)
     finishedSteps = 0
-    dataPush = np.zeros((NstepsPush + 1, 2))
+    dataPush = np.zeros((Nsteps + 1, 2))
 
     # Perform pushover analysis
     D0 = 0.0
-    for j in range(NstepsPush):
+    for j in range(Nsteps):
         D1 = DisplacementStep[j]
         Dincr = D1 - D0
-        print(f'DisplacementStep {j} = ', DisplacementStep[j], '-------->', f'Dincr = ', Dincr)
+        if printProgression:
+            print(f'DisplacementStep {j} = ', DisplacementStep[j], '-------->', f'Dincr = ', Dincr)
         if unconvergeSteps > maxUnconvergedSteps:
             break
         ops.integrator("DisplacementControl", IDctrlNode, 1, Dincr)
@@ -343,17 +345,15 @@ def run_analysis(DisplacementStep, plotPushOverResults=True):
         if ok < 0:
             unconvergeSteps = unconvergeSteps + 1
 
-        finishedSteps = j
+        finishedSteps = j+1
         disp = ops.nodeDisp(IDctrlNode, 1)
-        baseShear = -ops.getLoadFactor(2) * 0.001  # convert to KN
+        baseShear = -ops.getLoadFactor(2)
         dataPush[j + 1, 0] = disp
         dataPush[j + 1, 1] = baseShear
 
-
-
-
     toc = time.time()
-    print('CYCLIC ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
+    if printProgression:
+        print('CYCLIC ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
 
     if plotPushOverResults:
         plt.rcParams.update({'font.size': 14})
@@ -364,8 +364,8 @@ def run_analysis(DisplacementStep, plotPushOverResults=True):
         displacement_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Displacement.out')
         # Plot Force vs. Displacement
         plt.figure(figsize=(7, 6), dpi=100)
-        plt.plot(displacement_data, -force_data/1000, color='blue', linewidth=1.2, label='Numerical test')
-        # plt.plot([row[0] for row in dataPush[:finishedSteps]], [-row[1] for row in dataPush[:finishedSteps]], color="red", linestyle="-", linewidth=1.2, label='Experimental test')
+        # plt.plot(displacement_data, -force_data, color='blue', linewidth=1.2, label='Numerical test')
+        plt.plot([row[0] for row in dataPush[:finishedSteps]], [-row[1] for row in dataPush[:finishedSteps]], color="red", linestyle="-", linewidth=1.2, label='Experimental test')
         plt.axhline(0, color='black', linewidth=0.4)
         plt.axvline(0, color='black', linewidth=0.4)
         plt.grid(linestyle='dotted')
@@ -385,10 +385,9 @@ def run_analysis(DisplacementStep, plotPushOverResults=True):
         #     plt.xlim(-1, 25)
         #     plt.xticks(np.linspace(-20, 20, 11, endpoint=True))
 
-        plt.savefig(f'CyclicValidation.svg', format='svg', dpi=300, bbox_inches='tight')
+        # plt.savefig(f'CyclicValidation.svg', format='svg', dpi=300, bbox_inches='tight')
         plt.show()
 
-
-
-    # return [dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1]], ops
+    # return [dataPush[:, 0], -dataPush[:, 1]]
+    return [dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1]]
 

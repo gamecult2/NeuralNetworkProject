@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from Units import *
 
 def generate_cyclic_load(duration=10, sampling_rate=50, max_displacement=65):
     # Generate a constant time array
@@ -14,7 +15,7 @@ def generate_cyclic_load(duration=10, sampling_rate=50, max_displacement=65):
     return t, cyclic_load
 
 # Define the range of maximum displacements
-min_max_displacement = np.arange(10, 121, 10)
+min_max_displacement = np.arange(20 * mm, 75 * mm, 10 * mm)
 
 # Create a single figure for all the subplots
 fig, ax = plt.subplots(figsize=(10, 4))
