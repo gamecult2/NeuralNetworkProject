@@ -67,11 +67,14 @@ maxDisplacement = [
 random.seed(22)
 
 # Define the number of samples and the number of cyclic loads for each sample
-num_samples = 50
+num_samples = 1000
 
 # Open the CSV file for writing
 with open("RCWall_Data/generated_samples.csv", 'a', newline='') as file:
     writer = csv.writer(file)
+
+    converged = []
+    nonconverged = []
 
     for sample_index in range(num_samples):
         print("RUNNING SIMULATION N°", sample_index)
@@ -91,21 +94,28 @@ with open("RCWall_Data/generated_samples.csv", 'a', newline='') as file:
         DisplacementStep = list(generate_cyclic_load(Max_Displacement))
 
         parameter_values = [tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef]
-        displacement_values = DisplacementStep
+        # displacement_values = DisplacementStep
 
-        print("USED PARAMETERS : ", parameter_values)
+        print("\033[92mUSED PARAMETERS :", parameter_values, "\033[0m")
 
         rcmodel.build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef)
         [x, y] = rcmodel.run_analysis(DisplacementStep, plotPushOverResults=False, printProgression=False)
-        rcmodel.reset_analysis()
-        print(len(x))
 
         if len(x) == 500:  # Check if the length of the response results is 500 to write it to the file other results will be removed because of non-convergence
+            print(len(x))
+            converged.append(sample_index)
             # Save all samples in the same CSV file
             # ------------------------ Inputs --------------------------------------------------------------------------------------------
-            writer.writerow(['InputParameters_values'] + parameter_values)                 # The 9 Parameters used for the simulation
-            writer.writerow(['InputDisplacement_values'] + displacement_values)           # Cyclic Displacement imposed to the RC Shear Wall
+            writer.writerow(['InputParameters_values'] + parameter_values)                # The 9 Parameters used for the simulation
+            writer.writerow(['InputDisplacement_values'] + DisplacementStep)              # Cyclic Displacement imposed to the RC Shear Wall
 
             # ----------------------- Outputs --------------------------------------------------------------------------------------------
-            # writer.writerow(['OutputDisplacement_values'] + x.astype(str).tolist())     # Displacement Response of the RC Shear Wall
+            writer.writerow(['OutputDisplacement_values'] + x.astype(str).tolist())       # Displacement Response of the RC Shear Wall
             writer.writerow(['OutputShear_values'] + y.astype(str).tolist())              # Shear Response of the RC Shear Wall
+        else:
+            nonconverged.append(sample_index)
+
+        rcmodel.reset_analysis()
+
+    print('converged = ', len(converged))
+    print('Non-converged =', len(nonconverged))

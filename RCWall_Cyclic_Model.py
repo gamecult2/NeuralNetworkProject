@@ -322,12 +322,12 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
     #         print("Analysis completed successfully.") 
     # DisplacementStep
     '''  # Alternative Analysis
-
+    # DisplacementStep = np.array(DisplacementStep)
     maxUnconvergedSteps = 10
     unconvergeSteps = 0
     Nsteps = len(DisplacementStep)
     finishedSteps = 0
-    dataPush = np.zeros((Nsteps + 1, 2))
+    dataCyc = np.zeros((Nsteps + 1, 2))
 
     # Perform pushover analysis
     D0 = 0.0
@@ -335,7 +335,7 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
         D1 = DisplacementStep[j]
         Dincr = D1 - D0
         if printProgression:
-            print(f'DisplacementStep {j} = ', DisplacementStep[j], '-------->', f'Dincr = ', Dincr)
+           print(f'Step {j} -------->', f'Dincr = ', Dincr)
         if unconvergeSteps > maxUnconvergedSteps:
             break
         ops.integrator("DisplacementControl", IDctrlNode, 1, Dincr)
@@ -344,11 +344,15 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
         if ok < 0:
             unconvergeSteps = unconvergeSteps + 1
 
-        finishedSteps = j+1
+        finishedSteps = j + 1
         disp = ops.nodeDisp(IDctrlNode, 1)
+        # disp = round(ops.nodeDisp(IDctrlNode, 1), 0)
         baseShear = -ops.getLoadFactor(2)
-        dataPush[j + 1, 0] = disp
-        dataPush[j + 1, 1] = baseShear
+        if printProgression:
+            print(f'\033[92mInputDisplacement {j} = {DisplacementStep[j]}\033[0m')
+            print(f'\033[91mOutputDisplacement {j} = {disp}\033[0m')
+        dataCyc[j + 1, 0] = disp
+        dataCyc[j + 1, 1] = baseShear
 
     toc = time.time()
     if printProgression:
@@ -364,7 +368,8 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
         # Plot Force vs. Displacement
         plt.figure(figsize=(7, 6), dpi=100)
         # plt.plot(displacement_data, -force_data, color='blue', linewidth=1.2, label='Numerical test')
-        plt.plot([row[0] for row in dataPush[:finishedSteps]], [-row[1] for row in dataPush[:finishedSteps]], color="red", linestyle="-", linewidth=1.2, label='Experimental test')
+        plt.plot([row[0] for row in dataCyc[:finishedSteps]], [-row[1] for row in dataCyc[:finishedSteps]], color="red", linestyle="-", linewidth=1.2, label='Output Displacement vs Shear Load')
+        plt.plot(DisplacementStep, [-row[1] for row in dataCyc[:finishedSteps]], color="blue", linestyle="-", linewidth=1.2, label='Input Displacement vs Shear Load')
         plt.axhline(0, color='black', linewidth=0.4)
         plt.axvline(0, color='black', linewidth=0.4)
         plt.grid(linestyle='dotted')
@@ -387,6 +392,89 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
         # plt.savefig(f'CyclicValidation.svg', format='svg', dpi=300, bbox_inches='tight')
         plt.show()
 
-    # return [dataPush[:, 0], -dataPush[:, 1]]
-    return [dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1]]
+    # return [dataCyc[:, 0], -dataCyc[:, 1]]
+    return [dataCyc[0:finishedSteps, 0], -dataCyc[0:finishedSteps, 1]]
 
+# def run_pushover(MaxDisp=75, DispIncr=1, plotPushOverResults=True, printProgression=True, recordData=False):
+#
+#     if printProgression:
+#         print("RUNNING PUSHOVER ANALYSIS")
+#     tic = time.time()
+#
+#     if recordData:
+#         ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Horizontal_Reactions.out', '-node', 1, '-dof', 1, 'reaction')
+#         ops.recorder('Node', '-file', 'RunTimeNodalResults/disp_pushover.out', '-node', IDctrlNode, '-dof', 1, 'disp')
+#
+#     # Apply lateral load based on first mode shape in x direction (EC8-1)
+#     ops.timeSeries('Linear', 3)  # create TimeSeries for gravity analysis
+#     ops.pattern('Plain', 3, 3)
+#
+#     NstepsPush = int(MaxDisp / DispIncr)
+#
+#     if printProgression:
+#         print("Starting pushover analysis...")
+#         print("   total steps: ", NstepsPush)
+#
+#     ops.load(IDctrlNode, *[1.0, 0.0, 0.0])  # Apply a unit reference load in DOF=1 (nd    FX  FY  MZ)
+#
+#     ops.constraints('Penalty', 1e20, 1e20)
+#     ops.numberer("RCM")
+#     ops.system("BandGeneral")
+#     ops.test('NormDispIncr', 1e-9, 100, 0)
+#     ops.algorithm('KrylovNewton')
+#     ops.integrator("DisplacementControl", IDctrlNode, 1, DispIncr)  # Target node is IDctrlNode and dof is 1
+#     ops.analysis("Static")
+#
+#     maxUnconvergedSteps = 10
+#     unconvergeSteps = 0
+#     finishedSteps = 0
+#     dataPush = np.zeros((NstepsPush + 1, 2))
+#
+#     # Perform pushover analysis
+#     for j in range(NstepsPush):
+#         if unconvergeSteps > maxUnconvergedSteps:
+#             break
+#
+#         ok = ops.analyze(1)
+#
+#         if ok < 0:
+#             unconvergeSteps = unconvergeSteps + 1
+#
+#         finishedSteps = j
+#         disp = ops.nodeDisp(IDctrlNode, 1)
+#         baseShear = -ops.getLoadFactor(3)  # convert to KN
+#         dataPush[j + 1, 0] = disp
+#         dataPush[j + 1, 1] = baseShear
+#
+#         if printProgression:
+#             print("step", j + 1, "/", NstepsPush, "   ", "disp", "=", str(round(disp, 2)))
+#
+#     toc = time.time()
+#     if printProgression:
+#         print('PUSHOVER ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
+#
+#     if plotPushOverResults:
+#         plt.rcParams.update({'font.size': 14})
+#         plt.rcParams["font.family"] = "Times New Roman"
+#
+#         plt.figure(figsize=(6, 4), dpi=100)
+#         plt.plot(dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1], color="red", linewidth=1.2, linestyle="-", label='Pushover Analysis')
+#         plt.axhline(0, color='black', linewidth=0.4)
+#         plt.axvline(0, color='black', linewidth=0.4)
+#         plt.grid(linestyle='dotted')
+#         plt.xlabel('Displacement (mm)')
+#         plt.ylabel('Base Shear (N)')
+#
+#         # if plotValidation:
+#         #     # Read test output data to plot
+#         #     Test = np.loadtxt("RunTimeNodalResults/experimental_data.txt", delimiter="\t", unpack="False")
+#         #     plt.plot(Test[0, :], Test[1, :], color="black", linewidth=0.8, linestyle="--", label='Experimental Data')
+#         #     plt.xlim(-1, 25)
+#         #     plt.xticks(np.linspace(-20, 20, 11, endpoint=True))
+#
+#         plt.tight_layout()
+#         plt.legend()
+#         plt.show()
+#
+#     return [dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1]], ops
+#

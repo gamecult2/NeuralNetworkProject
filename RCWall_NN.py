@@ -2,7 +2,6 @@
 Neural Network Model with Function API
 Status : Working Need More Checking
 """
-import pandas as pd
 import numpy as np
 import tensorflow as tf
 from keras.models import Model
@@ -12,6 +11,8 @@ import keras.callbacks
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import matplotlib.pyplot as plt
+import os
+os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 
 
 # Activate the GPU

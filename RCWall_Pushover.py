@@ -33,24 +33,23 @@ GPa = 1000 * MPa    # GigaPascal (Pressure)
 # Define Validation Example as Parameter Values
 # ------------------------------------------------------------------------
 # Wall Geometry
-hw = 4.56 * m          # Wall height
-lw = 2.00 * m          # Wall length
-tw = 150 * mm           # Wall thickness
-lbe = 150 * mm         # Boundary element length
+tw = 102 * mm  # Wall thickness
+hw = 3.66 * m  # Wall height
+lw = 1.22 * m  # Wall length
+lbe = 190 * mm  # Boundary element length
+lweb = lw - (2 * lbe)
 
 # Material proprieties
-fc = -50.6 * MPa       # Concrete peak compressive stress (+Tension, -Compression)
-fy = 470 * MPa         # Steel tension yield strength (+Tension, -Compression)
-bereinfratio = 2.5     # BE long reinforcement ratio (percentage)
-webreinfratio = 1.375  # Web long reinforcement ratio (percentage)
+fc = -41.7 * MPa       # Concrete peak compressive stress (+Tension, -Compression)
+fy = 414 * MPa         # Steel tension yield strength (+Tension, -Compression)
 
-bereinfDiam = 10        # BE long reinforcement diameter (mm)
-bereinfNum = 6         # BE long reinforcement diameter (mm)
+bereinfNum = 8  # BE long reinforcement diameter (mm)
+bereinfDiam = 9.53  # BE long reinforcement diameter (mm)
 
-webreinfDiam = 6       # Web long reinforcement diameter (mm)
-webreinfNum = 24       # Web long reinforcement diameter (mm)
+webreinfNum = 8  # Web long reinforcement diameter (mm)
+webreinfDiam = 6.35  # Web long reinforcement diameter (mm)
 
-loadcoef = 0.05
+loadcoef = 0.1
 rouYb = 0.033
 rouYw = 0.025
 
@@ -154,11 +153,11 @@ def build_model(hw, lw, tw, lbe, fc, fy, rouYb, rouYw, loadcoef,
     # Build concrete materials
     ops.uniaxialMaterial('ConcreteCM', 3, fpc, ec0, Ec, ru, xcrnu, ft, et, rt, xcrp)     # unconfined concrete
     ops.uniaxialMaterial('ConcreteCM', 4, fpcc, ec0c, Ecc, rc, xcrnc, ft, et, rt, xcrp)  # confined concrete
-
-    ''' 
+    
+    '''
     # CONCRETE ---------------------------------------------------------------
     # fc = fc     # Concrete Compressive Strength, MPa   (+Tension, -Compression)
-    Ec = 29 * GPa     # Concrete Elastic Modulus
+    Ec = 33 * GPa     # Concrete Elastic Modulus
     # unconfined concrete
     fc1U = fc            # unconfined concrete (todeschini parabolic model), maximum stress
     eps1U = -0.0021      # strain at maximum strength of unconfined concrete
@@ -166,7 +165,7 @@ def build_model(hw, lw, tw, lbe, fc, fy, rouYb, rouYw, loadcoef,
     eps2U = -0.01        # strain at ultimate stress
     lam = 0.1            # ratio between unloading slope at $eps2 and initial slope $Ec
     # confined concrete
-    fc1C = fc            # confined concrete (mander model), maximum stress
+    fc1C = fc * 1.2           # confined concrete (mander model), maximum stress
     eps1C = 2 * fc1C/Ec  # strain at maximum stress (-0.0033)
     fc2C = 0.2 * fc1C    # ultimate stress
     eps2C = 5 * eps1C    # strain at ultimate stress
@@ -177,8 +176,8 @@ def build_model(hw, lw, tw, lbe, fc, fy, rouYb, rouYw, loadcoef,
 
     ops.uniaxialMaterial('Concrete02', 3, fc1U, eps1U, fc2U, eps2U, lam, ftU, Ets)  # COVER CONCRETE  (unconfined)
     ops.uniaxialMaterial('Concrete02', 4, fc1C, eps1C, fc2C, eps2C, lam, ftC, Ets)  # CORE CONCRETE  (confined)
-    # print('Concrete02', 3, fc1U, eps1U, fc2U, eps2U, lam, ftU, Ets)  # COVER CONCRETE  (unconfined)
-    # print('Concrete02', 4, fc1C, eps1C, fc2C, eps2C, lam, ftC, Ets)  # CORE CONCRETE  (confined)
+    print('Concrete02', 3, fc1U, eps1U, fc2U, eps2U, lam, ftU, Ets)  # COVER CONCRETE  (unconfined)
+    print('Concrete02', 4, fc1C, eps1C, fc2C, eps2C, lam, ftC, Ets)  # CORE CONCRETE  (confined)
     #'''  # Other Concrete02 Model
 
     # SHEAR -----------------------------------------------------------------
@@ -220,26 +219,7 @@ def build_model(hw, lw, tw, lbe, fc, fy, rouYb, rouYw, loadcoef,
     # Set 'MVLEM' element
     for i in range(eleH):
         ops.element('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
-        # print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
-
-    parameters = {
-        "wall_height": wall_height,
-        "wall_length": wall_length,
-        "wall_thickness": wall_thickness,
-        "length_be": length_be,
-        "length_web": length_web,
-        "rouYb": rouYb,
-        "rouYw": rouYw,
-        "IDctrlNode": IDctrlNode,
-        "IDctrlDOF": IDctrlDOF,
-        "Pforce": Pforce,
-        "eleL": eleL,
-        "eleH": eleH,
-        "eleBE": eleBE,
-        "eleWeb": eleWeb
-    }
-    return parameters
-
+        print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
 
 def run_gravity(steps=10):
     print("RUNNING GRAVITY ANALYSIS")
@@ -263,7 +243,7 @@ def run_gravity(steps=10):
     # Keep the gravity loads for further analysis
     ops.loadConst('-time', 0.0)  # hold gravity constant and restart time
 
-def run_pushover(steps=200, MaxDisp=15, DispIncr=0.1, plotDeformedGravity=False, plotPushOverResults=True, progressBar=None, printProgression=True, recordResults=False):
+def run_pushover(steps=200, MaxDisp=75, DispIncr=0.1, plotDeformedGravity=False, plotPushOverResults=True, progressBar=None, printProgression=True, recordResults=False):
 
     print("RUNNING PUSHOVER ANALYSIS")
     tic = time.time()

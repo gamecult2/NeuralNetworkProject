@@ -171,6 +171,39 @@ def Greifenhagen_M3():
     DisplacementStep = [1, 0, -1, 0, 1, 0, -1, 0, 1, 2, 1, 0, -1, -2, -1, 0, 1, 2, 1, 0, -1, -2, -1, 0, 1, 2, 3, 2, 1, 0, -1, -2, -3, -2, -1, 0, 1, 2, 3, 2, 1, 0, -1, -2, -3, -2, -1, 0, 1, 2, 3, 4, 3, 2, 1, 0, -1, -2, -3, -4, -3, -2, -1, 0, 1, 2, 3, 4, 3, 2, 1, 0, -1, -2, -3, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 5,
         4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4,
         3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4,
+        -5, -6, -7, -8, -9, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0]  # Displacement steps For Greifenhagen_M3
+
+    return tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, DisplacementStep
+
+def Lu_SW11():
+    # https://sci-hub.st/10.1061/(asce)0733-9445(2004)130:4(618)
+    global name;
+    name = 'Lu_SW11'
+    # Wall Geometry
+    tw = 125 * mm  # Wall thickness
+    hw = 2.00 * m  # Wall height
+    lw = 1.00 * m  # Wall length
+    lbe = 200 * mm  # Boundary element length
+    lweb = lw - (2 * lbe)
+
+    # Material proprieties
+    fc = 20.7 * MPa  # Concrete peak compressive stress (+Tension, -Compression)
+    fy = 554 * MPa  # Steel tension yield strength (+Tension, -Compression)
+
+    bereinfNum = 6  # BE long reinforcement diameter (mm)
+    bereinfDiam = 10  # BE long reinforcement diameter (mm)
+
+    webreinfNum = 10  # Web long reinforcement diameter (mm)
+    webreinfDiam = 6  # Web long reinforcement diameter (mm)
+
+    rouYb = (RebarArea(bereinfDiam) * bereinfNum) / (lbe * tw)  # Y boundary
+    rouYw = (RebarArea(webreinfDiam) * webreinfNum) / (lweb * tw)  # Y web
+
+    loadcoef = 0.1
+
+    DisplacementStep = [1, 0, -1, 0, 1, 0, -1, 0, 1, 2, 1, 0, -1, -2, -1, 0, 1, 2, 1, 0, -1, -2, -1, 0, 1, 2, 3, 2, 1, 0, -1, -2, -3, -2, -1, 0, 1, 2, 3, 2, 1, 0, -1, -2, -3, -2, -1, 0, 1, 2, 3, 4, 3, 2, 1, 0, -1, -2, -3, -4, -3, -2, -1, 0, 1, 2, 3, 4, 3, 2, 1, 0, -1, -2, -3, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 5,
+        4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4,
+        3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4,
         -5, -6, -7, -8, -9, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, ]  # Displacement steps For Greifenhagen_M3
 
     return tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, DisplacementStep
@@ -179,8 +212,13 @@ def Greifenhagen_M3():
 validation_model = Thomsen_and_Wallace_RW2()
 # validation_model = Dazio_WSH2()
 # validation_model = Greifenhagen_M3()
+# validation_model = Lu_SW11()
+
 tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, DisplacementStep = validation_model
 
 rcmodel.build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef)
 rcmodel.run_analysis(DisplacementStep, plotPushOverResults=True)
 rcmodel.reset_analysis()
+# rcmodel.build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef)
+# rcmodel.run_pushover(MaxDisp=750, DispIncr=1)
+# rcmodel.reset_analysis()
