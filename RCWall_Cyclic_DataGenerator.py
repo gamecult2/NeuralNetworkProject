@@ -100,12 +100,12 @@ with open("RCWall_Data/generated_samples.csv", 'a', newline='') as file:
         rcmodel.reset_analysis()
         print(len(x))
 
-        if len(x) == 500:
+        if len(x) == 500:  # Check if the length of the response results is 500 to write it to the file other results will be removed because of non-convergence
             # Save all samples in the same CSV file
-            # writer.writerow([sample_index])
-            writer.writerow(['parameter_values'] + parameter_values)  # Start the line with headers
-            writer.writerow(['displacement_values'] + displacement_values)
-            writer.writerow(['y_values'] + y.astype(str).tolist())  # Convert 'y' to a list of strings
-            # writer.writerow(x)
+            # ------------------------ Inputs --------------------------------------------------------------------------------------------
+            writer.writerow(['InputParameters_values'] + parameter_values)                 # The 9 Parameters used for the simulation
+            writer.writerow(['InputDisplacement_values'] + displacement_values)           # Cyclic Displacement imposed to the RC Shear Wall
 
-
+            # ----------------------- Outputs --------------------------------------------------------------------------------------------
+            # writer.writerow(['OutputDisplacement_values'] + x.astype(str).tolist())     # Displacement Response of the RC Shear Wall
+            writer.writerow(['OutputShear_values'] + y.astype(str).tolist())              # Shear Response of the RC Shear Wall

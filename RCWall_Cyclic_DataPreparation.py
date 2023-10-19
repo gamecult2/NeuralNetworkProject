@@ -1,42 +1,34 @@
 import csv
 
-input_filename = 'RCWall_Data/generated_samples.csv'
-output_dir = 'RCWall_Data/'
+def open_csv_file(filename):
+    """Opens a CSV file and returns a list of rows, where each row is a list of values."""
+    with open(filename, "r") as f:
+        return list(csv.reader(f))
 
-# Create lists to store data for each type
-parameter_values = []
-displacement_values = []
-y_values = []
+def split_rows_into_three(rows):
+    """Splits a list of rows into three lists, where each list contains the rows for a single data point."""
+    return [rows[i:i + 3] for i in range(0, len(rows), 3)]
 
-# Read the input CSV file and separate the data
-with open(input_filename, 'r') as csvfile:
-    reader = csv.reader(csvfile, delimiter=',')
-    current_data = None
+def extract_values(data_points, row_index):
+    """Extracts values from a specific row of each data point and converts them to floats."""
+    return [[float(value) for value in data_point[row_index][1:]] for data_point in data_points]
 
-    for row in reader:
-        if row:
-            data_type = row[0]
+def save_data_to_file(filename, data):
+    """Saves a list of data to a CSV file."""
+    with open(filename, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(data)
 
-            if data_type == 'parameter_values':
-                current_data = parameter_values
-            elif data_type == 'displacement_values':
-                current_data = displacement_values
-            elif data_type == 'y_values':
-                current_data = y_values
+def main():
+    filename = "RCWall_Data/generated_samples.csv"
+    rows = open_csv_file(filename)
+    data_points = split_rows_into_three(rows)
+
+    # Extract and save the parameter values, displacement values, and y values to separate files
+    save_data_to_file("RCWall_Data/InputParameters_values.csv", extract_values(data_points, 0))
+    save_data_to_file("RCWall_Data/InputDisplacement_values.csv", extract_values(data_points, 1))
+    save_data_to_file("RCWall_Data/OutputShear_values.csv", extract_values(data_points, 2))
 
 
-# Write the separated data to individual CSV files
-with open(output_dir + 'parameters.csv', 'w', newline='') as parameter_file:
-    parameter_writer = csv.writer(parameter_file)
-    for row in parameter_values:
-        parameter_writer.writerow(row)
-
-with open(output_dir + 'displacement_values.csv', 'w', newline='') as displacement_file:
-    displacement_writer = csv.writer(displacement_file)
-    for row in displacement_values:
-        displacement_writer.writerow(row)
-
-with open(output_dir + 'y_values.csv', 'w', newline='') as y_file:
-    y_writer = csv.writer(y_file)
-    for row in y_values:
-        y_writer.writerow(row)
+# Run file preparation
+main()

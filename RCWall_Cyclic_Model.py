@@ -117,19 +117,15 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
     cR1 = 0.925  # control the transition from elastic to plastic branches
     cR2 = 0.15  # control the transition from elastic to plastic branches
 
-    # Build steel materials
+    # STEEL Reinforcing steel
+    # ops.uniaxialMaterial('Steel02', 1, fyYbp, Es, Bs, R0, cR1, cR2)  # steel Y boundary
+    # ops.uniaxialMaterial('Steel02', 2, fyYwp, Es, Bs, R0, cR1, cR2)  # steel Y web
     ops.uniaxialMaterial('SteelMPF', 1, fyYbp, fyYbn, Es, bybp, bybn, R0, a1, a2)  # steel Y boundary
     ops.uniaxialMaterial('SteelMPF', 2, fyYwp, fyYwn, Es, bywp, bywn, R0, a1, a2)  # steel Y web
     ops.uniaxialMaterial('MinMax', 6, 1, '-min', -0.06, '-max', 0.06)
     ops.uniaxialMaterial('MinMax', 7, 2, '-min', -0.06, '-max', 0.06)
 
-    # STEEL Reinforcing steel
-    # ops.uniaxialMaterial('Steel02', 1, fyYbp, Es, Bs, R0, cR1, cR2)  # steel Y boundary
-    # ops.uniaxialMaterial('Steel02', 2, fyYwp, Es, Bs, R0, cR1, cR2)  # steel Y web
-    # ops.uniaxialMaterial('MinMax', 6, 1, '-min', -0.06, '-max', 0.06)
-    # ops.uniaxialMaterial('MinMax', 7, 2, '-min', -0.06, '-max', 0.06)
     # '''
-
     # CONCRETE misc -------------------------------------------------------------------------
     # unconfined
     fpc = fc                 # Concrete Compressive Strength, MPa   (+Tension, -Compression)
@@ -262,14 +258,12 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
         ops.element('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
         # print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
 
-def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=True):
+def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=True, recordData=False):
 
     if printProgression:
         print("RUNNING GRAVITY ANALYSIS")
 
     steps = 10
-    # ops.recorder('Node', '-file', 'RunTimeNodalResults/Disp.txt', '-closeOnWrite', '-time', '-node', IDctrlNode, '-dof', 2, 'disp')
-    # ops.recorder('Node', '-file', 'RunTimeNodalResults/Gravity_Reactions.out', '-time', '-node', *[1], '-dof', *[1, 2, 3], 'reaction')
 
     ops.timeSeries('Linear', 1)  # create TimeSeries for gravity analysis
     ops.pattern('Plain', 1, 1)
@@ -295,8 +289,10 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
         print("RUNNING CYCLIC ANALYSIS")
 
     tic = time.time()
-    ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Horizontal_Reaction.out', '-closeOnWrite', '-node', 1, '-dof', 1, 'reaction')
-    ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Horizontal_Displacement.out', '-closeOnWrite', '-node', IDctrlNode, '-dof', 1, 'disp')
+    if recordData:
+        print("RECORDING SHEAR VS DISPLACEMENT DATA")
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Horizontal_Reaction.out', '-closeOnWrite', '-node', 1, '-dof', 1, 'reaction')
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Horizontal_Displacement.out', '-closeOnWrite', '-node', IDctrlNode, '-dof', 1, 'disp')
 
     # Apply lateral load based on first mode shape in x direction (EC8-1)
     ops.timeSeries('Linear', 2)
@@ -310,6 +306,7 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
     ops.algorithm('KrylovNewton')
     ops.analysis('Static')
 
+    '''
     # D0 = 0.0
     # for Dstep in DisplacementStep:
     #     D1 = Dstep
@@ -322,7 +319,9 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
     #     if ok != 0:
     #         print("Analysis failed at {} step.".format(Dstep))
     #     else:
-    #         print("Analysis completed successfully.") # DisplacementStep
+    #         print("Analysis completed successfully.") 
+    # DisplacementStep
+    '''  # Alternative Analysis
 
     maxUnconvergedSteps = 10
     unconvergeSteps = 0
