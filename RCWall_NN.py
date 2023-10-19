@@ -11,8 +11,8 @@ import keras.callbacks
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import matplotlib.pyplot as plt
-import os
-os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+# import os
+# os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 
 
 # Activate the GPU
@@ -20,12 +20,14 @@ tf.config.list_physical_devices(device_type=None)
 physical_devices = tf.config.list_physical_devices('GPU')
 print("Num GPUs:", len(physical_devices))
 
-# Read Input and Parameters_values.csv
+# Read Input files
 InputParameters = np.genfromtxt("RCWall_Data/InputParameters_values.csv", delimiter=',')
 InputDisplacement = np.genfromtxt("RCWall_data/InputDisplacement_values.csv", delimiter=',')
+# Read Output files
+OutputDisplacement = np.genfromtxt("RCWall_data/OutputDisplacement_values.csv", delimiter=',')
 OutputShear = np.genfromtxt("RCWall_data/OutputShear_values.csv", delimiter=',')
 
-# Normalize the input data using Min-Max scaling with separate scalers
+# Normalize the data with separate scalers
 param_scaler = MinMaxScaler()
 InputParameters = param_scaler.fit_transform(InputParameters)
 
@@ -33,26 +35,30 @@ displacement_scaler = StandardScaler()
 InputDisplacement = displacement_scaler.fit_transform(InputDisplacement.T).T
 
 # Create a StandardScaler object for OutputShear
+output_displacement_scaler = StandardScaler()
+OutputDisplacement = output_displacement_scaler.fit_transform(OutputDisplacement.T).T
+
 output_shear_scaler = StandardScaler()
 OutputShear = output_shear_scaler.fit_transform(OutputShear.T).T
 
 # Save normalized data to CSV files
 np.savetxt("RCWall_Data/Normalized_InputParameters.csv", InputParameters, delimiter=',')
 np.savetxt("RCWall_Data/Normalized_InputDisplacement.csv", InputDisplacement, delimiter=',')
+np.savetxt("RCWall_Data/Normalized_OutputDisplacement.csv", OutputDisplacement, delimiter=',')
 np.savetxt("RCWall_Data/Normalized_OutputShear.csv", OutputShear, delimiter=',')
 
 
 # Organize the Generate data
 num_samples, parameters_length = InputParameters.shape
 num_samples, displacement_length = InputDisplacement.shape
-num_features = 1  # Number of columns in GM curve (Just Cyclic Displacement)
+num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
 
 # Reshape Data
 InputDisplacement = InputDisplacement.reshape(InputDisplacement.shape[0], InputDisplacement.shape[1], num_features)
 
 # Split data into training, validation, and testing sets
-X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, Y_shear_train, Y_shear_test = train_test_split(
-    InputParameters, InputDisplacement, OutputShear, test_size=0.1, random_state=42
+X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, Y_displacement_train, Y_displacement_test, Y_shear_train, Y_shear_test = train_test_split(
+    InputParameters, InputDisplacement, OutputDisplacement, OutputShear, test_size=0.1, random_state=42
 )
 
 # Build the neural network model using functional API
@@ -63,26 +69,28 @@ flat1 = Flatten()(dense_layer)
 
 # Layer 2
 displacement_input = Input(shape=(displacement_length, num_features), name='displacement_input')
-lstm_layer = Bidirectional(LSTM(displacement_length, return_sequences=True))(displacement_input)  # Bidirectional LSTM layer
+lstm_layer = LSTM(displacement_length, return_sequences=True)(displacement_input)  # Bidirectional LSTM layer
 flat2 = Flatten()(lstm_layer)
 
 # Merge the 2 inputs layer with concatenate LSTM and Dense layers
 merged = concatenate([flat1, flat2])
 
 # Output layer for displacement
+# displacement_output = Dense(displacement_length)(merged)
+# shear_output = Dense(displacement_length)(merged)
 shear_output = Dense(displacement_length)(merged)
 
 model = Model(inputs=[parameters_input, displacement_input], outputs=shear_output)
 
 # Compile the model
-optimizer = Adam(learning_rate=0.01)
+optimizer = Adam(learning_rate=0.00001)
 model.compile(optimizer=optimizer, loss='mean_squared_error', metrics=['mean_squared_error'])  # , metrics=['mean_absolute_error']
 model.summary()
 
 # Define the checkpoint callback
 early_stopping = keras.callbacks.EarlyStopping(
     monitor="val_loss",  # Loss to monitor for stopping
-    patience=40,  # stop training after 5 non-improved training
+    patience=5,  # stop training after 5 non-improved training
     verbose=2
 )
 
@@ -91,7 +99,7 @@ history = model.fit(
     [X_parameter_train, X_displacement_train],  # Input layer (GMA + STRUCTURAL PARAMETERS)
     Y_shear_train,  # Output layer (DISPLACEMENT)
     epochs=100,
-    batch_size=32,
+    batch_size=8,
     validation_split=0.2,
     callbacks=[early_stopping]  # checkpoint_callback or early_stopping
 )
@@ -111,23 +119,24 @@ loss = model.evaluate([X_parameter_test, X_displacement_test], Y_shear_test)
 print("Test loss:", loss)
 
 
-test_index = 5
+test_index = 3
 new_parameters = X_parameter_test[0:test_index + 1]  # Select corresponding influencing parameters
-new_displacement = X_displacement_test[0:test_index + 1]  # Select a single example
+new_indisplacement = X_displacement_test[0:test_index + 1]  # Select a single example
+new_outdisplacement = Y_displacement_test[0:test_index + 1]  # Select a single example
 real_shear = Y_shear_test[0:test_index + 1]
 
 # Predict displacement for the new data
-predicted_shear = model.predict([new_parameters, new_displacement])
+predicted_shear = model.predict([new_parameters, new_indisplacement])
 
-# You can also inverse transform the new_parameters and new_displacement if needed
-# restored_new_displacement = displacement_scaler.inverse_transform(new_displacement)
+# You can also inverse transform the new_parameters and new_indisplacement if needed
+# restored_new_displacement = displacement_scaler.inverse_transform(new_indisplacement)
 
 # Inverse transform the predicted shear data to get it back to the original scale
 # restored_predicted_shear = output_shear_scaler.inverse_transform(predicted_shear)
 
 # Plot the predicted displacement
 plt.figure(figsize=(10, 6))
-for i in range(5):
+for i in range(test_index):
     plt.plot(predicted_shear[i], label=f'Predicted Shear load - {i + 1}')
     plt.plot(real_shear[i], label=f'Real Shear load - {i + 1}')
     plt.xlabel('Time Step', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
@@ -141,9 +150,9 @@ for i in range(5):
 
 # Plot the predicted displacement
 plt.figure(figsize=(10, 6))
-for i in range(5):
-    plt.plot(predicted_shear[i], new_displacement[i], label=f'Predicted Displacement - {i + 1}')
-    plt.plot(real_shear[i], new_displacement[i],  label=f'True displacement - {i + 1}')
+for i in range(test_index):
+    plt.plot(predicted_shear[i], new_indisplacement[i], label=f'Predicted Displacement - {i + 1}')
+    plt.plot(real_shear[i], new_indisplacement[i], label=f'True displacement - {i + 1}')
     plt.xlabel('Time Step', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
     plt.ylabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
     plt.title('Predicted Displacement Time Series', fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
@@ -153,6 +162,19 @@ for i in range(5):
     plt.grid()
     plt.show()
 
+# Plot the predicted displacement
+plt.figure(figsize=(10, 6))
+for i in range(test_index):
+    plt.plot(predicted_shear[i], new_outdisplacement[i], label=f'Predicted Displacement - {i + 1}')
+    plt.plot(real_shear[i], new_outdisplacement[i], label=f'True displacement - {i + 1}')
+    plt.xlabel('Time Step', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+    plt.ylabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+    plt.title('Predicted Displacement Time Series', fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
+    plt.yticks(fontname='Cambria', fontsize=14)
+    plt.xticks(fontname='Cambria', fontsize=14)
+    plt.legend()
+    plt.grid()
+    plt.show()
 # # Predict displacement for the new data
 # predicted_displacement2 = model.predict([new_acceleration_sequence2, new_influencing_parameters2])
 #
