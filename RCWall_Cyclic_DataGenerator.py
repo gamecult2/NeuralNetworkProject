@@ -67,7 +67,7 @@ maxDisplacement = [
 random.seed(22)
 
 # Define the number of samples and the number of cyclic loads for each sample
-num_samples = 1000
+num_samples = 4000
 
 # Open the CSV file for writing
 with open("RCWall_Data/generated_samples.csv", 'a', newline='') as file:
