@@ -1,4 +1,5 @@
 import csv
+import matplotlib.pyplot as plt
 
 def open_csv_file(filename):
     """Opens a CSV file and returns a list of rows, where each row is a list of values."""
@@ -28,7 +29,7 @@ def main():
     # ------------------------ Inputs --------------------------------------------------------------------------------------------
     save_data_to_file("RCWall_Data/InputParameters_values.csv", extract_values(data_points, 0))
     save_data_to_file("RCWall_Data/InputDisplacement_values.csv", extract_values(data_points, 1))
-
+    #
     # ------------------------ Outputs --------------------------------------------------------------------------------------------
     save_data_to_file("RCWall_Data/OutputDisplacement_values.csv", extract_values(data_points, 2))
     save_data_to_file("RCWall_Data/OutputShear_values.csv", extract_values(data_points, 3))

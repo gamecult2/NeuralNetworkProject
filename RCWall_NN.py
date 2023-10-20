@@ -5,27 +5,28 @@ Status : Working Need More Checking
 import numpy as np
 import tensorflow as tf
 from keras.models import Model
-from keras.optimizers import Adam  # Import the optimizer
+from keras.optimizers import Adam # Import the optimizer
 from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional
 import keras.callbacks
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import matplotlib.pyplot as plt
-# import os
-# os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+import os
 
+os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 
 # Activate the GPU
 tf.config.list_physical_devices(device_type=None)
 physical_devices = tf.config.list_physical_devices('GPU')
 print("Num GPUs:", len(physical_devices))
+max_rows = 200
 
 # Read Input files
-InputParameters = np.genfromtxt("RCWall_Data/InputParameters_values.csv", delimiter=',')
-InputDisplacement = np.genfromtxt("RCWall_data/InputDisplacement_values.csv", delimiter=',')
+InputParameters = np.genfromtxt("RCWall_Data/InputParameters_values.csv", delimiter=',', max_rows=max_rows)
+InputDisplacement = np.genfromtxt("RCWall_data/InputDisplacement_values.csv", delimiter=',', max_rows=max_rows)
 # Read Output files
-OutputDisplacement = np.genfromtxt("RCWall_data/OutputDisplacement_values.csv", delimiter=',')
-OutputShear = np.genfromtxt("RCWall_data/OutputShear_values.csv", delimiter=',')
+OutputDisplacement = np.genfromtxt("RCWall_data/OutputDisplacement_values.csv", delimiter=',', max_rows=max_rows)
+OutputShear = np.genfromtxt("RCWall_data/OutputShear_values.csv", delimiter=',', max_rows=max_rows)
 
 # Normalize the data with separate scalers
 param_scaler = MinMaxScaler()
@@ -47,7 +48,6 @@ np.savetxt("RCWall_Data/Normalized_InputDisplacement.csv", InputDisplacement, de
 np.savetxt("RCWall_Data/Normalized_OutputDisplacement.csv", OutputDisplacement, delimiter=',')
 np.savetxt("RCWall_Data/Normalized_OutputShear.csv", OutputShear, delimiter=',')
 
-
 # Organize the Generate data
 num_samples, parameters_length = InputParameters.shape
 num_samples, displacement_length = InputDisplacement.shape
@@ -58,7 +58,7 @@ InputDisplacement = InputDisplacement.reshape(InputDisplacement.shape[0], InputD
 
 # Split data into training, validation, and testing sets
 X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, Y_displacement_train, Y_displacement_test, Y_shear_train, Y_shear_test = train_test_split(
-    InputParameters, InputDisplacement, OutputDisplacement, OutputShear, test_size=0.1, random_state=42
+    InputParameters, InputDisplacement, OutputDisplacement, OutputShear, test_size=0.2, random_state=42
 )
 
 # Build the neural network model using functional API
@@ -78,12 +78,13 @@ merged = concatenate([flat1, flat2])
 # Output layer for displacement
 # displacement_output = Dense(displacement_length)(merged)
 # shear_output = Dense(displacement_length)(merged)
+
 shear_output = Dense(displacement_length)(merged)
 
 model = Model(inputs=[parameters_input, displacement_input], outputs=shear_output)
 
 # Compile the model
-optimizer = Adam(learning_rate=0.00001)
+optimizer = Adam(learning_rate=0.001)
 model.compile(optimizer=optimizer, loss='mean_squared_error', metrics=['mean_squared_error'])  # , metrics=['mean_absolute_error']
 model.summary()
 
@@ -98,8 +99,8 @@ early_stopping = keras.callbacks.EarlyStopping(
 history = model.fit(
     [X_parameter_train, X_displacement_train],  # Input layer (GMA + STRUCTURAL PARAMETERS)
     Y_shear_train,  # Output layer (DISPLACEMENT)
-    epochs=100,
-    batch_size=8,
+    epochs=1000,
+    batch_size=32,
     validation_split=0.2,
     callbacks=[early_stopping]  # checkpoint_callback or early_stopping
 )
@@ -117,7 +118,6 @@ plt.show()
 # Evaluate the model
 loss = model.evaluate([X_parameter_test, X_displacement_test], Y_shear_test)
 print("Test loss:", loss)
-
 
 test_index = 3
 new_parameters = X_parameter_test[0:test_index + 1]  # Select corresponding influencing parameters
@@ -175,18 +175,3 @@ for i in range(test_index):
     plt.legend()
     plt.grid()
     plt.show()
-# # Predict displacement for the new data
-# predicted_displacement2 = model.predict([new_acceleration_sequence2, new_influencing_parameters2])
-#
-# # Plot the predicted displacement
-# plt.figure(figsize=(10, 6))
-# plt.plot(predicted_displacement2[0], label='Predicted Displacement')
-# plt.plot(real_displacement_sequence2[0], label='True displacement')
-# plt.xlabel('Time Step', {'fontstyle': 'italic', 'size': 14})
-# plt.ylabel('Displacement', {'fontstyle': 'italic', 'size': 14})
-# plt.title('Predicted Displacement Time Series', {'fontstyle': 'normal', 'size': 16})
-# plt.yticks(fontsize=14)
-# plt.xticks(fontsize=14)
-# plt.legend()
-# plt.grid()
-# plt.show()

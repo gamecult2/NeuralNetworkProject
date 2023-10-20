@@ -10,7 +10,7 @@ def reset_analysis():
     Resets the analysis by setting time to 0,
     removing the recorders and wiping the analysis.
     """
-    ops.setTime(0.0)    ##  Set the time in the Domain to zero
+    ops.setTime(0.0)    # Set the time in the Domain to zero
     ops.loadConst()    # Set the loads constant in the domain
     ops.remove('recorders')    # Remove all recorder objects.
     ops.wipeAnalysis()    # destroy all components of the Analysis object
@@ -258,6 +258,11 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
         ops.element('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
         # print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
 
+    parameter_values = [tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef]
+    # displacement_values = DisplacementStep
+
+    print("\033[92mUSED PARAMETERS :", parameter_values, "\033[0m")
+
 def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=True, recordData=False):
 
     if printProgression:
@@ -323,6 +328,7 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
     # DisplacementStep
     '''  # Alternative Analysis
     # DisplacementStep = np.array(DisplacementStep)
+
     maxUnconvergedSteps = 10
     unconvergeSteps = 0
     Nsteps = len(DisplacementStep)
@@ -347,7 +353,7 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
         finishedSteps = j + 1
         disp = ops.nodeDisp(IDctrlNode, 1)
         # disp = round(ops.nodeDisp(IDctrlNode, 1), 0)
-        baseShear = -ops.getLoadFactor(2)
+        baseShear = -ops.getLoadFactor(2) / 1000
         if printProgression:
             print(f'\033[92mInputDisplacement {j} = {DisplacementStep[j]}\033[0m')
             print(f'\033[91mOutputDisplacement {j} = {disp}\033[0m')
