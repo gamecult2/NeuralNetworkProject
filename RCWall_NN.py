@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from keras.models import Model
 from keras.optimizers import Adam # Import the optimizer
-from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional
+from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D
 import keras.callbacks
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -19,7 +19,7 @@ os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 tf.config.list_physical_devices(device_type=None)
 physical_devices = tf.config.list_physical_devices('GPU')
 print("Num GPUs:", len(physical_devices))
-max_rows = 200
+max_rows = None
 
 # Read Input files
 InputParameters = np.genfromtxt("RCWall_Data/InputParameters_values.csv", delimiter=',', max_rows=max_rows)
@@ -69,16 +69,31 @@ flat1 = Flatten()(dense_layer)
 
 # Layer 2
 displacement_input = Input(shape=(displacement_length, num_features), name='displacement_input')
-lstm_layer = LSTM(displacement_length, return_sequences=True)(displacement_input)  # Bidirectional LSTM layer
-flat2 = Flatten()(lstm_layer)
+# lstm_layer = Bidirectional(LSTM(displacement_length, return_sequences=True))(displacement_input)  # Bidirectional LSTM layer
+# flat2 = Flatten()(lstm_layer)
 
-# Merge the 2 inputs layer with concatenate LSTM and Dense layers
+# 1D Convolutional Layer for displacement input
+# conv_layer = Conv1D(displacement_length, kernel_size=16, activation='relu')(displacement_input)
+# pooled_layer = GlobalMaxPooling1D()(conv_layer)
+# flat2 = Dense(displacement_length, activation='relu')(Flatten()(pooled_layer))
+#
+# # Recurrent Layer (LSTM)
+# lstm_layer = LSTM(displacement_length, return_sequences=True)(displacement_input)
+# flat3 = Dense(displacement_length, activation='relu')(Flatten()(lstm_layer))
+
+# LSTM Autoencoder Model
+lstm_encoder = LSTM(32, return_sequences=True)(displacement_input)
+lstm_decoder = LSTM(displacement_length, return_sequences=True)(lstm_encoder)
+flat2 = Flatten()(lstm_decoder)
+
+
+# Merge the 2 inputs layer with concatenate LSTM and Dense layers merged = Concatenate()([flat1, flat2])
 merged = concatenate([flat1, flat2])
 
 # Output layer for displacement
 # displacement_output = Dense(displacement_length)(merged)
-# shear_output = Dense(displacement_length)(merged)
 
+# Output layer for shear
 shear_output = Dense(displacement_length)(merged)
 
 model = Model(inputs=[parameters_input, displacement_input], outputs=shear_output)
@@ -86,6 +101,8 @@ model = Model(inputs=[parameters_input, displacement_input], outputs=shear_outpu
 # Compile the model
 optimizer = Adam(learning_rate=0.001)
 model.compile(optimizer=optimizer, loss='mean_squared_error', metrics=['mean_squared_error'])  # , metrics=['mean_absolute_error']
+
+# Model summary
 model.summary()
 
 # Define the checkpoint callback
@@ -98,9 +115,9 @@ early_stopping = keras.callbacks.EarlyStopping(
 # Train the model
 history = model.fit(
     [X_parameter_train, X_displacement_train],  # Input layer (GMA + STRUCTURAL PARAMETERS)
-    Y_shear_train,  # Output layer (DISPLACEMENT)
+    Y_shear_train,  # Output layer (SHEAR)
     epochs=1000,
-    batch_size=32,
+    batch_size=64,
     validation_split=0.2,
     callbacks=[early_stopping]  # checkpoint_callback or early_stopping
 )
