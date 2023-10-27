@@ -1,5 +1,4 @@
 import csv
-import matplotlib.pyplot as plt
 
 def open_csv_file(filename):
     """Opens a CSV file and returns a list of rows, where each row is a list of values."""

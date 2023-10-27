@@ -10,15 +10,37 @@ def reset_analysis():
     Resets the analysis by setting time to 0,
     removing the recorders and wiping the analysis.
     """
-    ops.setTime(0.0)    # Set the time in the Domain to zero
-    ops.loadConst()    # Set the loads constant in the domain
-    ops.remove('recorders')    # Remove all recorder objects.
-    ops.wipeAnalysis()    # destroy all components of the Analysis object
+    ops.setTime(0.0)  # Set the time in the Domain to zero
+    ops.loadConst()  # Set the loads constant in the domain
+    ops.remove('recorders')  # Remove all recorder objects.
+    ops.wipeAnalysis()  # destroy all components of the Analysis object
     ops.wipe()
+
+def ploting(x_data, y_data, x_label, y_label, title):
+    plt.rcParams.update({'font.size': 14, "font.family": ["Cambria", "Times New Roman"]})
+
+    # Plot Force vs. Displacement
+    plt.figure(figsize=(7, 6), dpi=100)
+    plt.plot(x_data, y_data, color='blue', linewidth=1.2, label='Numerical test')
+    plt.axhline(0, color='black', linewidth=0.4)
+    plt.axvline(0, color='black', linewidth=0.4)
+    plt.grid(linestyle='dotted')
+
+    font_settings = {'fontname': 'Cambria', 'size': 14}
+    plt.xlabel(x_label, fontdict=font_settings)
+    plt.ylabel(y_label, fontdict=font_settings)
+    plt.yticks(fontname='Cambria', fontsize=14)
+    plt.xticks(fontname='Cambria', fontsize=14)
+    plt.title(title, fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
+    plt.tight_layout()
+    plt.legend()
+    plt.show()
+
 
 def RebarArea(RebarDiametermm):
     a = 3.1416 * (RebarDiametermm / 2) ** 2  # compute area
     return a
+
 
 def generate_cyclic_load(duration=6.0, sampling_rate=50, max_displacement=75):
     # Generate a constant time array
@@ -31,6 +53,7 @@ def generate_cyclic_load(duration=6.0, sampling_rate=50, max_displacement=75):
     cyclic_load = (displacement_slope * t) * np.sin(2 * np.pi * t)
 
     return cyclic_load
+
 
 def generate_cyclic_loading_history(duration_per_amplitude, max_displacement):
     # Set the number of amplitudes to 12
@@ -57,8 +80,9 @@ def generate_cyclic_loading_history(duration_per_amplitude, max_displacement):
 
     return t_total, loading_history
 
+
 def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8):
-    ops.wipe()  # Clear opensees model
+    ops.wipe()
     ops.model('basic', '-ndm', 2, '-ndf', 3)  # Model of 2 dimensions, 3 dof per node
 
     # ----------------------------------------------------------------------------------------
@@ -128,11 +152,11 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
     # '''
     # CONCRETE misc -------------------------------------------------------------------------
     # unconfined
-    fpc = fc                 # Concrete Compressive Strength, MPa   (+Tension, -Compression)
-    Ec = 37 * GPa            # Young's modulus
-    ec0 = 2 * (fpc / Ec)     # strain at maximum compressive stress (-0.0021)
-    ru = 7                   # shape parameter - compression
-    xcrnu = 1.039            # cracking strain - compression
+    fpc = fc  # Concrete Compressive Strength, MPa   (+Tension, -Compression)
+    Ec = 37 * GPa  # Young's modulus
+    ec0 = 2 * (fpc / Ec)  # strain at maximum compressive stress (-0.0021)
+    ru = 7  # shape parameter - compression
+    xcrnu = 1.039  # cracking strain - compression
 
     # confined
     # Ecc = 30 * GPa           # Young's modulus
@@ -260,20 +284,16 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
 
     parameter_values = [tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef]
     # displacement_values = DisplacementStep
+    print("\033[92mModel Built Successfully!\033[0m")
+    print("\033[92mUsing the following parameters :", parameter_values, "\033[0m")
 
-    print("\033[92mUSED PARAMETERS :", parameter_values, "\033[0m")
 
-def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=True, recordData=False):
-
+def run_gravity(steps=10, printProgression=True):
     if printProgression:
         print("RUNNING GRAVITY ANALYSIS")
-
-    steps = 10
-
-    ops.timeSeries('Linear', 1)  # create TimeSeries for gravity analysis
+    ops.timeSeries('Linear', 1, '-factor', 1.0)  # create TimeSeries for gravity analysis
     ops.pattern('Plain', 1, 1)
     ops.load(IDctrlNode, *[0.0, -Aload, 0.0])  # apply vertical load
-
     ops.constraints('Transformation')
     ops.numberer('RCM')
     ops.system('BandGeneral')
@@ -282,28 +302,26 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
     ops.integrator('LoadControl', 1 / steps)
     ops.analysis('Static')
     ops.analyze(steps)
-
+    ops.loadConst('-time', 0.0)  # hold gravity constant and restart time for further analysis
     if printProgression:
         print("GRAVITY ANALYSIS DONE!")
 
-    # Keep the gravity loads for further analysis
-    ops.loadConst('-time', 0.0)  # hold gravity constant and restart time
 
-    # START OF CYCLIC LOADING ANALYSIS
+def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, recordData=False):
+
     if printProgression:
+        tic = time.time()
         print("RUNNING CYCLIC ANALYSIS")
 
-    tic = time.time()
     if recordData:
-        print("RECORDING SHEAR VS DISPLACEMENT DATA")
-        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Horizontal_Reaction.out', '-closeOnWrite', '-node', 1, '-dof', 1, 'reaction')
-        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Horizontal_Displacement.out', '-closeOnWrite', '-node', IDctrlNode, '-dof', 1, 'disp')
+        print("RECORDING SHEAR LOAD VS DISPLACEMENT DATA")
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Reaction.out', '-closeOnWrite', '-node', 1, '-dof', 1, 'reaction')
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Displacement.out', '-closeOnWrite', '-node', IDctrlNode, '-dof', 1, 'disp')
 
     # Apply lateral load based on first mode shape in x direction (EC8-1)
-    ops.timeSeries('Linear', 2)
+    ops.timeSeries('Linear', 2, '-factor', 1.0)
     ops.pattern('Plain', 2, 2)
     ops.load(IDctrlNode, *[1.0, 0.0, 0.0])  # apply vertical load
-
     ops.constraints('Penalty', 1e20, 1e20)
     ops.numberer('RCM')
     ops.system("BandGeneral")
@@ -327,21 +345,22 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
     #         print("Analysis completed successfully.") 
     # DisplacementStep
     '''  # Alternative Analysis
-    # DisplacementStep = np.array(DisplacementStep)
 
     maxUnconvergedSteps = 10
     unconvergeSteps = 0
     Nsteps = len(DisplacementStep)
     finishedSteps = 0
     dataCyc = np.zeros((Nsteps + 1, 2))
+    dispData = np.zeros(Nsteps + 1)
+    baseShearData = np.zeros(Nsteps + 1)
 
-    # Perform pushover analysis
+    # Perform cyclic analysis
     D0 = 0.0
     for j in range(Nsteps):
         D1 = DisplacementStep[j]
         Dincr = D1 - D0
         if printProgression:
-           print(f'Step {j} -------->', f'Dincr = ', Dincr)
+            print(f'Step {j} -------->', f'Dincr = ', Dincr)
         if unconvergeSteps > maxUnconvergedSteps:
             break
         ops.integrator("DisplacementControl", IDctrlNode, 1, Dincr)
@@ -352,30 +371,29 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
 
         finishedSteps = j + 1
         disp = ops.nodeDisp(IDctrlNode, 1)
-        # disp = round(ops.nodeDisp(IDctrlNode, 1), 0)
-        baseShear = -ops.getLoadFactor(2) / 1000
+        baseShear = -ops.getLoadFactor(2) / 1000  # Convert to from N to kN
         if printProgression:
             print(f'\033[92mInputDisplacement {j} = {DisplacementStep[j]}\033[0m')
             print(f'\033[91mOutputDisplacement {j} = {disp}\033[0m')
-        dataCyc[j + 1, 0] = disp
-        dataCyc[j + 1, 1] = baseShear
+        # dataCyc[j + 1, 0] = disp
+        # dataCyc[j + 1, 1] = baseShear
+        dispData[j + 1] = disp
+        baseShearData[j + 1] = baseShear
 
-    toc = time.time()
     if printProgression:
+        toc = time.time()
         print('CYCLIC ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
 
-    if plotPushOverResults:
-        plt.rcParams.update({'font.size': 14})
-        plt.rcParams["font.family"] = "Times New Roman"
+    if plotResults:
 
-        # Load the data from the files
         force_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Reaction.out')
         displacement_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Displacement.out')
         # Plot Force vs. Displacement
         plt.figure(figsize=(7, 6), dpi=100)
         # plt.plot(displacement_data, -force_data, color='blue', linewidth=1.2, label='Numerical test')
-        plt.plot([row[0] for row in dataCyc[:finishedSteps]], [-row[1] for row in dataCyc[:finishedSteps]], color="red", linestyle="-", linewidth=1.2, label='Output Displacement vs Shear Load')
-        plt.plot(DisplacementStep, [-row[1] for row in dataCyc[:finishedSteps]], color="blue", linestyle="-", linewidth=1.2, label='Input Displacement vs Shear Load')
+        plt.plot(dispData, -baseShearData, color="red", linestyle="-", linewidth=1.2, label='Output Displacement vs Shear Load')
+        # plt.plot([row[0] for row in dataCyc[:finishedSteps]], [-row[1] for row in dataCyc[:finishedSteps]], color="black", linestyle="-", linewidth=1.2, label='Output Displacement vs Shear Load')
+        # plt.plot(DisplacementStep, [-row[1] for row in dataCyc[:finishedSteps]], color="blue", linestyle="-", linewidth=1.2, label='Input Displacement vs Shear Load')
         plt.axhline(0, color='black', linewidth=0.4)
         plt.axvline(0, color='black', linewidth=0.4)
         plt.grid(linestyle='dotted')
@@ -387,100 +405,82 @@ def run_analysis(DisplacementStep, plotPushOverResults=True, printProgression=Tr
         plt.title(f'Specimen', {'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
         plt.tight_layout()
         plt.legend()
-
-        # if plotValidation:
-        #     # Read test output data to plot
-        #     Test = np.loadtxt("RunTimeNodalResults/experimental_data.txt", delimiter="\t", unpack="False")
-        #     plt.plot(Test[0, :], Test[1, :], color="black", linewidth=0.8, linestyle="--", label='Experimental Data')
-        #     plt.xlim(-1, 25)
-        #     plt.xticks(np.linspace(-20, 20, 11, endpoint=True))
-
-        # plt.savefig(f'CyclicValidation.svg', format='svg', dpi=300, bbox_inches='tight')
         plt.show()
 
     # return [dataCyc[:, 0], -dataCyc[:, 1]]
-    return [dataCyc[0:finishedSteps, 0], -dataCyc[0:finishedSteps, 1]]
+    # return [dataCyc[0:finishedSteps, 0], -dataCyc[0:finishedSteps, 1]]
+    return [dispData[0:finishedSteps], -baseShearData[0:finishedSteps]]
 
-# def run_pushover(MaxDisp=75, DispIncr=1, plotPushOverResults=True, printProgression=True, recordData=False):
-#
-#     if printProgression:
-#         print("RUNNING PUSHOVER ANALYSIS")
-#     tic = time.time()
-#
-#     if recordData:
-#         ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Horizontal_Reactions.out', '-node', 1, '-dof', 1, 'reaction')
-#         ops.recorder('Node', '-file', 'RunTimeNodalResults/disp_pushover.out', '-node', IDctrlNode, '-dof', 1, 'disp')
-#
-#     # Apply lateral load based on first mode shape in x direction (EC8-1)
-#     ops.timeSeries('Linear', 3)  # create TimeSeries for gravity analysis
-#     ops.pattern('Plain', 3, 3)
-#
-#     NstepsPush = int(MaxDisp / DispIncr)
-#
-#     if printProgression:
-#         print("Starting pushover analysis...")
-#         print("   total steps: ", NstepsPush)
-#
-#     ops.load(IDctrlNode, *[1.0, 0.0, 0.0])  # Apply a unit reference load in DOF=1 (nd    FX  FY  MZ)
-#
-#     ops.constraints('Penalty', 1e20, 1e20)
-#     ops.numberer("RCM")
-#     ops.system("BandGeneral")
-#     ops.test('NormDispIncr', 1e-9, 100, 0)
-#     ops.algorithm('KrylovNewton')
-#     ops.integrator("DisplacementControl", IDctrlNode, 1, DispIncr)  # Target node is IDctrlNode and dof is 1
-#     ops.analysis("Static")
-#
-#     maxUnconvergedSteps = 10
-#     unconvergeSteps = 0
-#     finishedSteps = 0
-#     dataPush = np.zeros((NstepsPush + 1, 2))
-#
-#     # Perform pushover analysis
-#     for j in range(NstepsPush):
-#         if unconvergeSteps > maxUnconvergedSteps:
-#             break
-#
-#         ok = ops.analyze(1)
-#
-#         if ok < 0:
-#             unconvergeSteps = unconvergeSteps + 1
-#
-#         finishedSteps = j
-#         disp = ops.nodeDisp(IDctrlNode, 1)
-#         baseShear = -ops.getLoadFactor(3)  # convert to KN
-#         dataPush[j + 1, 0] = disp
-#         dataPush[j + 1, 1] = baseShear
-#
-#         if printProgression:
-#             print("step", j + 1, "/", NstepsPush, "   ", "disp", "=", str(round(disp, 2)))
-#
-#     toc = time.time()
-#     if printProgression:
-#         print('PUSHOVER ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
-#
-#     if plotPushOverResults:
-#         plt.rcParams.update({'font.size': 14})
-#         plt.rcParams["font.family"] = "Times New Roman"
-#
-#         plt.figure(figsize=(6, 4), dpi=100)
-#         plt.plot(dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1], color="red", linewidth=1.2, linestyle="-", label='Pushover Analysis')
-#         plt.axhline(0, color='black', linewidth=0.4)
-#         plt.axvline(0, color='black', linewidth=0.4)
-#         plt.grid(linestyle='dotted')
-#         plt.xlabel('Displacement (mm)')
-#         plt.ylabel('Base Shear (N)')
-#
-#         # if plotValidation:
-#         #     # Read test output data to plot
-#         #     Test = np.loadtxt("RunTimeNodalResults/experimental_data.txt", delimiter="\t", unpack="False")
-#         #     plt.plot(Test[0, :], Test[1, :], color="black", linewidth=0.8, linestyle="--", label='Experimental Data')
-#         #     plt.xlim(-1, 25)
-#         #     plt.xticks(np.linspace(-20, 20, 11, endpoint=True))
-#
-#         plt.tight_layout()
-#         plt.legend()
-#         plt.show()
-#
-#     return [dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1]], ops
-#
+
+def run_pushover(MaxDisp=75, DispIncr=1, plotResults=True, printProgression=True, recordData=False):
+
+    if printProgression:
+        tic = time.time()
+        print("RUNNING PUSHOVER ANALYSIS")
+
+    if recordData:
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Reaction.out', '-node', 1, '-dof', 1, 'reaction')
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Displacement.out', '-node', IDctrlNode, '-dof', 1, 'disp')
+
+    # Apply lateral load based on first mode shape in x direction (EC8-1)
+    ops.timeSeries('Linear', 3, '-factor', 1.0)  # create TimeSeries for gravity analysis
+    ops.pattern('Plain', 3, 3)
+    ops.load(IDctrlNode, *[1.0, 0.0, 0.0])  # Apply a unit reference load in DOF=1 (nd    FX  FY  MZ)
+
+    NstepsPush = int(MaxDisp / DispIncr)
+
+    if printProgression:
+        print("Starting pushover analysis...")
+        print("   total steps: ", NstepsPush)
+
+    ops.constraints('Penalty', 1e20, 1e20)
+    ops.numberer("RCM")
+    ops.system("BandGeneral")
+    ops.test('NormDispIncr', 1e-9, 100, 0)
+    ops.algorithm('KrylovNewton')
+    ops.integrator("DisplacementControl", IDctrlNode, 1, DispIncr)  # Target node is IDctrlNode and dof is 1
+    ops.analysis("Static")
+
+    maxUnconvergedSteps = 10
+    unconvergeSteps = 0
+    finishedSteps = 0
+    dataPush = np.zeros((NstepsPush + 1, 2))
+
+    # Perform pushover analysis
+    for j in range(NstepsPush):
+        if unconvergeSteps > maxUnconvergedSteps:
+            break
+
+        ok = ops.analyze(1)
+
+        if ok < 0:
+            unconvergeSteps = unconvergeSteps + 1
+
+        finishedSteps = j
+        disp = ops.nodeDisp(IDctrlNode, 1)
+        baseShear = -ops.getLoadFactor(3) / 1000  # Convert to from N to kN
+        dataPush[j + 1, 0] = disp
+        dataPush[j + 1, 1] = baseShear
+
+        if printProgression:
+            print("step", j + 1, "/", NstepsPush, "   ", "disp", "=", str(round(disp, 2)))
+
+    if printProgression:
+        toc = time.time()
+        print('PUSHOVER ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
+
+    if plotResults:
+        plt.rcParams.update({'font.size': 14, "font.family": ["Times New Roman", "Cambria"]})
+
+        plt.figure(figsize=(6, 4), dpi=100)
+        plt.plot(dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1], color="red", linewidth=1.2, linestyle="-", label='Pushover Analysis')
+        plt.axhline(0, color='black', linewidth=0.4)
+        plt.axvline(0, color='black', linewidth=0.4)
+        plt.grid(linestyle='dotted')
+        plt.xlabel('Displacement (mm)')
+        plt.ylabel('Base Shear (N)')
+        plt.tight_layout()
+        plt.legend()
+        plt.show()
+
+    return [dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1]], ops

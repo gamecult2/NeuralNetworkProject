@@ -5,7 +5,8 @@ Status : Working Need More Checking
 import numpy as np
 import tensorflow as tf
 from keras.models import Model
-from keras.optimizers import Adam # Import the optimizer
+from keras.optimizers import Adam
+from keras.metrics import MeanSquaredError, MeanAbsoluteError, MeanSquaredLogarithmicError, RootMeanSquaredError
 from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D
 import keras.callbacks
 from sklearn.model_selection import train_test_split
@@ -19,7 +20,7 @@ os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 tf.config.list_physical_devices(device_type=None)
 physical_devices = tf.config.list_physical_devices('GPU')
 print("Num GPUs:", len(physical_devices))
-max_rows = None
+max_rows = 300
 
 # Read Input files
 InputParameters = np.genfromtxt("RCWall_Data/InputParameters_values.csv", delimiter=',', max_rows=max_rows)
@@ -30,23 +31,23 @@ OutputShear = np.genfromtxt("RCWall_data/OutputShear_values.csv", delimiter=',',
 
 # Normalize the data with separate scalers
 param_scaler = MinMaxScaler()
-InputParameters = param_scaler.fit_transform(InputParameters)
+Normalized_InputParameters = param_scaler.fit_transform(InputParameters)
 
 displacement_scaler = StandardScaler()
-InputDisplacement = displacement_scaler.fit_transform(InputDisplacement.T).T
+Normalized_InputDisplacement = displacement_scaler.fit_transform(InputDisplacement.T).T
 
 # Create a StandardScaler object for OutputShear
 output_displacement_scaler = StandardScaler()
-OutputDisplacement = output_displacement_scaler.fit_transform(OutputDisplacement.T).T
+Normalized_OutputDisplacement = output_displacement_scaler.fit_transform(OutputDisplacement.T).T
 
 output_shear_scaler = StandardScaler()
-OutputShear = output_shear_scaler.fit_transform(OutputShear.T).T
+Normalized_OutputShear = output_shear_scaler.fit_transform(OutputShear.T).T
 
 # Save normalized data to CSV files
-np.savetxt("RCWall_Data/Normalized_InputParameters.csv", InputParameters, delimiter=',')
-np.savetxt("RCWall_Data/Normalized_InputDisplacement.csv", InputDisplacement, delimiter=',')
-np.savetxt("RCWall_Data/Normalized_OutputDisplacement.csv", OutputDisplacement, delimiter=',')
-np.savetxt("RCWall_Data/Normalized_OutputShear.csv", OutputShear, delimiter=',')
+np.savetxt("RCWall_Data/Normalized_InputParameters.csv", Normalized_InputParameters, delimiter=',')
+np.savetxt("RCWall_Data/Normalized_InputDisplacement.csv", Normalized_InputDisplacement, delimiter=',')
+np.savetxt("RCWall_Data/Normalized_OutputDisplacement.csv", Normalized_OutputDisplacement, delimiter=',')
+np.savetxt("RCWall_Data/Normalized_OutputShear.csv", Normalized_OutputShear, delimiter=',')
 
 # Organize the Generate data
 num_samples, parameters_length = InputParameters.shape
@@ -58,7 +59,7 @@ InputDisplacement = InputDisplacement.reshape(InputDisplacement.shape[0], InputD
 
 # Split data into training, validation, and testing sets
 X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, Y_displacement_train, Y_displacement_test, Y_shear_train, Y_shear_test = train_test_split(
-    InputParameters, InputDisplacement, OutputDisplacement, OutputShear, test_size=0.2, random_state=42
+    Normalized_InputParameters, Normalized_InputDisplacement, Normalized_OutputDisplacement, Normalized_OutputShear, test_size=0.2, random_state=42
 )
 
 # Build the neural network model using functional API
@@ -100,7 +101,10 @@ model = Model(inputs=[parameters_input, displacement_input], outputs=shear_outpu
 
 # Compile the model
 optimizer = Adam(learning_rate=0.001)
-model.compile(optimizer=optimizer, loss='mean_squared_error', metrics=['mean_squared_error'])  # , metrics=['mean_absolute_error']
+model.compile(optimizer=optimizer,
+              loss='mean_squared_error',
+              metrics=[MeanSquaredError(name='mse'),
+                       MeanAbsoluteError(name='mae')])
 
 # Model summary
 model.summary()
@@ -116,16 +120,16 @@ early_stopping = keras.callbacks.EarlyStopping(
 history = model.fit(
     [X_parameter_train, X_displacement_train],  # Input layer (GMA + STRUCTURAL PARAMETERS)
     Y_shear_train,  # Output layer (SHEAR)
-    epochs=1000,
-    batch_size=64,
+    epochs=1,
+    batch_size=16,
     validation_split=0.2,
     callbacks=[early_stopping]  # checkpoint_callback or early_stopping
 )
 # model.save("NN_functionalAPI_DynamicSystem")  # Save the model after training
 
 # Plot the training and validation loss
-plt.plot(history.history['loss'], label="Train Loss")
-plt.plot(history.history['val_loss'], label="Val Loss")
+plt.plot(history.history['loss'], label="Training Loss")
+plt.plot(history.history['val_loss'], label="Validation Loss")
 plt.xlabel("Epochs")
 plt.ylabel("Loss")
 plt.title("Training and Validation Loss Over Epochs")
@@ -145,11 +149,11 @@ real_shear = Y_shear_test[0:test_index + 1]
 # Predict displacement for the new data
 predicted_shear = model.predict([new_parameters, new_indisplacement])
 
-# You can also inverse transform the new_parameters and new_indisplacement if needed
-# restored_new_displacement = displacement_scaler.inverse_transform(new_indisplacement)
-
-# Inverse transform the predicted shear data to get it back to the original scale
-# restored_predicted_shear = output_shear_scaler.inverse_transform(predicted_shear)
+# Restoring the original data from the normalized data
+restored_InputParameters = param_scaler.inverse_transform(InputParameters)
+restored_InputDisplacement = displacement_scaler.inverse_transform(InputDisplacement.T).T
+restored_OutputDisplacement = output_displacement_scaler.inverse_transform(OutputDisplacement.T).T
+restored_OutputShear = output_shear_scaler.inverse_transform(OutputShear.T).T
 
 # Plot the predicted displacement
 plt.figure(figsize=(10, 6))
@@ -157,38 +161,40 @@ for i in range(test_index):
     plt.plot(predicted_shear[i], label=f'Predicted Shear load - {i + 1}')
     plt.plot(real_shear[i], label=f'Real Shear load - {i + 1}')
     plt.xlabel('Time Step', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.ylabel('Displacement', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+    plt.ylabel('Shear Load', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
     plt.title('Predicted Displacement Time Series', {'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
     plt.yticks(fontname='Cambria', fontsize=14)
     plt.xticks(fontname='Cambria', fontsize=14)
+    plt.tight_layout()
     plt.legend()
     plt.grid()
     plt.show()
 
 # Plot the predicted displacement
-plt.figure(figsize=(10, 6))
-for i in range(test_index):
-    plt.plot(predicted_shear[i], new_indisplacement[i], label=f'Predicted Displacement - {i + 1}')
-    plt.plot(real_shear[i], new_indisplacement[i], label=f'True displacement - {i + 1}')
-    plt.xlabel('Time Step', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.ylabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.title('Predicted Displacement Time Series', fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
-    plt.yticks(fontname='Cambria', fontsize=14)
-    plt.xticks(fontname='Cambria', fontsize=14)
-    plt.legend()
-    plt.grid()
-    plt.show()
+# plt.figure(figsize=(10, 6))
+# for i in range(test_index):
+#     plt.plot(predicted_shear[i], new_indisplacement[i], label=f'Predicted Displacement - {i + 1}')
+#     plt.plot(real_shear[i], new_indisplacement[i], label=f'True displacement - {i + 1}')
+#     plt.xlabel('Time Step', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+#     plt.ylabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+#     plt.title('Predicted Displacement Time Series', fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
+#     plt.yticks(fontname='Cambria', fontsize=14)
+#     plt.xticks(fontname='Cambria', fontsize=14)
+#     plt.legend()
+#     plt.grid()
+#     plt.show()
 
 # Plot the predicted displacement
 plt.figure(figsize=(10, 6))
 for i in range(test_index):
-    plt.plot(predicted_shear[i], new_outdisplacement[i], label=f'Predicted Displacement - {i + 1}')
-    plt.plot(real_shear[i], new_outdisplacement[i], label=f'True displacement - {i + 1}')
-    plt.xlabel('Time Step', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.ylabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+    plt.plot(new_outdisplacement[i], predicted_shear[i], label=f'Predicted Displacement - {i + 1}')
+    plt.plot(new_outdisplacement[i], real_shear[i], label=f'True displacement - {i + 1}')
+    plt.xlabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+    plt.ylabel('Shear Load', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
     plt.title('Predicted Displacement Time Series', fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
     plt.yticks(fontname='Cambria', fontsize=14)
     plt.xticks(fontname='Cambria', fontsize=14)
+    plt.tight_layout()
     plt.legend()
     plt.grid()
     plt.show()
