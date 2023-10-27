@@ -4,8 +4,9 @@ import random
 import csv
 import RCWall_Cyclic_Model as rcmodel
 
+random.seed(22)
 
-def generate_cyclic_load(max_displacement=65):
+def generate_cyclic_load(max_displacement=75):
     duration = 10
     sampling_rate = 50
     # Generate a constant time array
@@ -16,6 +17,31 @@ def generate_cyclic_load(max_displacement=65):
     cyclic_load = (displacement_slope * t) * np.sin(2 * np.pi * t)
 
     return cyclic_load
+
+def generate_cyclic_loading_history(duration_per_amplitude, max_displacement):
+    # Set the number of amplitudes to 12
+    num_amplitudes = 10
+    num_per_amplitudes = 2
+
+    # Create a time array for one cycle
+    t_one_cycle = np.linspace(0, duration_per_amplitude, num=100)
+
+    # Initialize an empty array to store the loading history
+    loading_history = []
+
+    # Generate the loading history with exponentially increasing displacements
+    for i in range(num_amplitudes):
+        # Calculate displacement exponentially
+        displacement = max_displacement * (1.4 ** i)
+
+        # Generate two cycles at each displacement
+        for _ in range(num_per_amplitudes):
+            loading_history = np.concatenate((loading_history, displacement * np.sin(2 * np.pi * t_one_cycle)))
+
+    # Create a time array for the entire loading history with two decimal places
+    t_total = np.round(np.linspace(0, duration_per_amplitude * num_amplitudes * num_per_amplitudes, num=len(loading_history)), 2)
+
+    return t_total, loading_history
 
 # Define the parameter ranges
 minParameters = [
@@ -64,15 +90,15 @@ maxDisplacement = [
 # minDisplacement = maxDisplacement = [
 #     75 * mm]       # (loadcoef) Maximum displacement
 
-random.seed(22)
+
 
 # Define the number of samples to be generated
+
 num_samples = 10000
 
 # Open the CSV file for writing
 with open("RCWall_Data/generated_samples.csv", 'a', newline='') as file:
     writer = csv.writer(file)
-
     converged, nonconverged = []
 
     for sample_index in range(num_samples):

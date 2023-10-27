@@ -251,13 +251,14 @@ tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, DisplacementStep = validation_m
 
 # RUN CYCLIC ANALYSIS
 rcmodel.build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef)
-rcmodel.run_gravity()
-rcmodel.run_cyclic(DisplacementStep, plotResults=False, printProgression=False)
+rcmodel.run_gravity(printProgression=False)
+[x, y] = rcmodel.run_cyclic(DisplacementStep, plotResults=False, printProgression=False)
 rcmodel.reset_analysis()
-# ploting(x, y, 'x_label', 'y_label', 'CYCLIC TETETET ANALYSIS')
+plotting(x, y, 'x_label', 'y_label', f'Cyclic Results')
 
 # RUN PUSHOVER ANALYSIS
 rcmodel.build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef)
-rcmodel.run_gravity()
-rcmodel.run_pushover(MaxDisp=75, DispIncr=0.1, plotResults=False, printProgression=False, recordData=False)
+rcmodel.run_gravity(printProgression=False)
+[x, y] = rcmodel.run_pushover(MaxDisp=75, DispIncr=0.1, plotResults=False, printProgression=False, recordData=False)
 rcmodel.reset_analysis()
+plotting(x, y, 'x_label', 'y_label', f'Pushover Results')

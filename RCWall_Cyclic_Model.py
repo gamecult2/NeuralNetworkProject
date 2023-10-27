@@ -5,6 +5,7 @@ import time
 import math
 from Units import *
 
+
 def reset_analysis():
     """
     Resets the analysis by setting time to 0,
@@ -15,6 +16,7 @@ def reset_analysis():
     ops.remove('recorders')  # Remove all recorder objects.
     ops.wipeAnalysis()  # destroy all components of the Analysis object
     ops.wipe()
+
 
 def ploting(x_data, y_data, x_label, y_label, title):
     plt.rcParams.update({'font.size': 14, "font.family": ["Cambria", "Times New Roman"]})
@@ -81,7 +83,7 @@ def generate_cyclic_loading_history(duration_per_amplitude, max_displacement):
     return t_total, loading_history
 
 
-def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8):
+def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8, printProgression=True):
     ops.wipe()
     ops.model('basic', '-ndm', 2, '-ndf', 3)  # Model of 2 dimensions, 3 dof per node
 
@@ -251,11 +253,11 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
     # Build shear material to assign for MVLEM element shear spring
     ops.uniaxialMaterial('Elastic', 5, Kshear)  # Shear Model for Section Aggregator
 
-    # axial force in N according to ACI318-19 (not considering the reinforced steel at this point for simplicity)
-    global Aload
+    global Aload  # axial force in N according to ACI318-19 (not considering the reinforced steel at this point for simplicity)
     # Aload = 0.07 * abs(fc) * tw * lw * loadcoef
     Aload = 0.85 * abs(fc) * tw * lw * loadcoef
     # print('Axial load (kN) = ', Aload / 1000)
+
     # ------------------------------------------------------------------------
     #  Calculate the parameters for 'MVLEM' elements
     # ------------------------------------------------------------------------
@@ -282,10 +284,9 @@ def build_model(tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef, eleH=16, eleL=8
         ops.element('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
         # print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 5)
 
-    parameter_values = [tw, hw, lw, lbe, fc, fy, rouYb, rouYw, loadcoef]
-    # displacement_values = DisplacementStep
-    print("\033[92mModel Built Successfully!\033[0m")
-    print("\033[92mUsing the following parameters :", parameter_values, "\033[0m")
+    parameter_values = [tw, hw, lw, lbe, fc, fy, round(rouYb, 4), round(rouYw, 4), loadcoef]
+    if printProgression:
+        print("\033[92mModel Built Successfully --> Using the following parameters :", parameter_values, "\033[0m")
 
 
 def run_gravity(steps=10, printProgression=True):
@@ -308,7 +309,6 @@ def run_gravity(steps=10, printProgression=True):
 
 
 def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, recordData=False):
-
     if printProgression:
         tic = time.time()
         print("RUNNING CYCLIC ANALYSIS")
@@ -322,11 +322,12 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
     ops.timeSeries('Linear', 2, '-factor', 1.0)
     ops.pattern('Plain', 2, 2)
     ops.load(IDctrlNode, *[1.0, 0.0, 0.0])  # apply vertical load
-    ops.constraints('Penalty', 1e20, 1e20)
+    ops.constraints('Transformation')  # Transformation 'Penalty', 1e20, 1e20
     ops.numberer('RCM')
-    ops.system("BandGeneral")
-    ops.test('NormDispIncr', 1e-9, 100, 0)
+    ops.system("BandGen")
+    ops.test('NormDispIncr', 1e-9, 1000, 0)
     ops.algorithm('KrylovNewton')
+    # ops.algorithm('NewtonLineSearch', True, 0.8, 1000, 0.1, 10.0)
     ops.analysis('Static')
 
     '''
@@ -385,7 +386,6 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         print('CYCLIC ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
 
     if plotResults:
-
         force_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Reaction.out')
         displacement_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Displacement.out')
         # Plot Force vs. Displacement
@@ -413,7 +413,6 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
 
 
 def run_pushover(MaxDisp=75, DispIncr=1, plotResults=True, printProgression=True, recordData=False):
-
     if printProgression:
         tic = time.time()
         print("RUNNING PUSHOVER ANALYSIS")
@@ -433,9 +432,9 @@ def run_pushover(MaxDisp=75, DispIncr=1, plotResults=True, printProgression=True
         print("Starting pushover analysis...")
         print("   total steps: ", NstepsPush)
 
-    ops.constraints('Penalty', 1e20, 1e20)
+    ops.constraints('Transformation')
     ops.numberer("RCM")
-    ops.system("BandGeneral")
+    ops.system("BandGen")
     ops.test('NormDispIncr', 1e-9, 100, 0)
     ops.algorithm('KrylovNewton')
     ops.integrator("DisplacementControl", IDctrlNode, 1, DispIncr)  # Target node is IDctrlNode and dof is 1
@@ -471,7 +470,6 @@ def run_pushover(MaxDisp=75, DispIncr=1, plotResults=True, printProgression=True
 
     if plotResults:
         plt.rcParams.update({'font.size': 14, "font.family": ["Times New Roman", "Cambria"]})
-
         plt.figure(figsize=(6, 4), dpi=100)
         plt.plot(dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1], color="red", linewidth=1.2, linestyle="-", label='Pushover Analysis')
         plt.axhline(0, color='black', linewidth=0.4)
@@ -483,4 +481,4 @@ def run_pushover(MaxDisp=75, DispIncr=1, plotResults=True, printProgression=True
         plt.legend()
         plt.show()
 
-    return [dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1]], ops
+    return [dataPush[0:finishedSteps, 0], -dataPush[0:finishedSteps, 1]]
