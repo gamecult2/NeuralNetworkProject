@@ -309,7 +309,7 @@ def run_analysis(DisplacementStep, plotPushOverResults=True):
 
     print("RUNNING GRAVITY ANALYSIS")
     steps = 10
-    # ops.recorder('Node', '-file', 'RunTimeNodalResults/Disp.txt', '-closeOnWrite', '-time', '-node', IDctrlNode, '-dof', 2, 'disp')
+    # ops.recorder('Node', '-file', 'RunTimeNodalResults/Disp.txt', '-closeOnWrite', '-time', '-node', ControlNode, '-dof', 2, 'disp')
     # ops.recorder('Node', '-file', 'RunTimeNodalResults/Gravity_Reactions.out', '-time', '-node', *[1], '-dof', *[1, 2, 3], 'reaction')
 
     ops.timeSeries('Linear', 1)  # create TimeSeries for gravity analysis
@@ -354,7 +354,7 @@ def run_analysis(DisplacementStep, plotPushOverResults=True):
     # for Dstep in DisplacementStep:
     #     D1 = Dstep
     #     Dincr = D1 - D0
-    #     ops.integrator("DisplacementControl", IDctrlNode, 1, Dincr)
+    #     ops.integrator("DisplacementControl", ControlNode, 1, Dincr)
     #     ok = ops.analyze(1)
     #     # ----------------------------------------------if convergence failure-------------------------
     #     D0 = D1  # move to next step

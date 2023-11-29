@@ -6,6 +6,7 @@ import numpy as np
 import openseespy.opensees as ops
 # import vfo.vfo as vfo
 # import opsvis as opsv
+import NewGeneratePeaks
 
 from Units import *
 
@@ -13,7 +14,7 @@ from Units import *
 def analysisLoopDisp(ok, step, Dincr, ControlNode, ControlNodeDof):
     # The displacement control analysis loop.
     if ok != 0:
-        print("Trying 5 times smaller timestep at step", step, Dincr / 5)
+        print("Trying 5 times smaller timestep at step", step)
         ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr / 5)
         ok = ops.analyze(1)
 
@@ -137,8 +138,8 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     # ---------------------------------------------------------------------------------------
     # Define Steel uni-axial materials
     # ---------------------------------------------------------------------------------------
-    sYw = 1
-    sYb = 2
+    sYb = 1
+    sYw = 2
     sX = 3
 
     # STEEL misc
@@ -147,14 +148,14 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     # STEEL Y BE (boundary element)
     fyYbp = fyb  # fy - tension
     fyYbn = fyb  # fy - compression
-    bybp = 0.01  # strain hardening - tension
-    bybn = 0.01  # strain hardening - compression
+    bybp = 0.0185  # strain hardening - tension
+    bybn = 0.02  # strain hardening - compression
 
     # STEEL Y WEB
     fyYwp = fyw  # fy - tension
     fyYwn = fyw  # fy - compression
-    bywp = 0.01  # strain hardening - tension
-    bywn = 0.01  # strain hardening - compression
+    bywp = 0.035  # strain hardening - tension
+    bywn = 0.02  # strain hardening - compression
 
     # STEEL X
     fyXp = fyw  # fy - tension
@@ -169,12 +170,16 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     cR2 = 0.015  # control the transition from elastic to plastic branches
 
     # SteelMPF model
-    ops.uniaxialMaterial('SteelMPF', sYw, fyYwp, fyYwn, Es, bywp, bywn, R0, cR1, cR2)  # Steel Y web
+    # ops.uniaxialMaterial('Steel02', sYb, fyYbp, Es, Bs, R0, cR1, cR2)
+    # ops.uniaxialMaterial('Steel02', sYw, fyYwp, Es, Bs, R0, cR1, cR2)
+    # ops.uniaxialMaterial('Steel02', sX, fyXp, Es, Bs, R0, cR1, cR2)
+    # SteelMPF model
     ops.uniaxialMaterial('SteelMPF', sYb, fyYbp, fyYbn, Es, bybp, bybn, R0, cR1, cR2)  # Steel Y boundary
-    # ops.uniaxialMaterial('SteelMPF', sX, fyXp, fyXn, Es, bXp, bXn, R0, cR1, cR2)  # Steel X
+    ops.uniaxialMaterial('SteelMPF', sYw, fyYwp, fyYwn, Es, bywp, bywn, R0, cR1, cR2)  # Steel Y web
+    ops.uniaxialMaterial('SteelMPF', sX, fyXp, fyXn, Es, bXp, bXn, R0, cR1, cR2)  # Steel X
     # print('--------------------------------------------------------------------------------------------------')
-    # print('SteelMPF', sYw, fyYwp, fyYwn, Es, bywp, bywn, R0, cR1, cR2)  # Steel Y web
     # print('SteelMPF', sYb, fyYbp, fyYbn, Es, bybp, bybn, R0, cR1, cR2)  # Steel Y boundary
+    # print('SteelMPF', sYw, fyYwp, fyYwn, Es, bywp, bywn, R0, cR1, cR2)  # Steel Y web
     # print('SteelMPF', sX, fyYwp, fyYwn, Es, bXp, bXn, R0, cR1, cR2)  # Steel X
 
     # ---------------------------------------------------------------------------------------
@@ -189,7 +194,7 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     fcU = -fc0 * MPa  # Unconfined concrete strength
     ecU = -(fc0 ** 0.25) / 1150  # Unconfined concrete strain
     EcU = Ec0  # Unconfined elastic modulus
-    ftU = 0.5 * (fc0 ** 0.5) * MPa  # Unconfined tensile strength
+    ftU = 0.5 * (fc0 ** 0.5)  # Unconfined tensile strength
     etU = 2.0 * ftU / EcU  # Unconfined tensile strain
     xpU = 2.0
     xnU = 2.3
@@ -227,19 +232,26 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     xcrp = 10000  # cracking strain - tension
 
     # -------------------------- ConcreteCM model --------------------------------------------
-    # ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
-    # ops.uniaxialMaterial('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, etC, rt, xcrp, '-GapClose', 1)  # BE (confined concrete)
-    # print('--------------------------------------------------------------------------------------------------')
-    # print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
-    # print('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, etC, rt, xcrp, '-GapClose', 1)  # BE (confined concrete)
+    ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
+    ops.uniaxialMaterial('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, etC, rt, xcrp, '-GapClose', 1)  # BE (confined concrete)
+    print('--------------------------------------------------------------------------------------------------')
+    print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
+    print('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, etC, rt, xcrp, '-GapClose', 1)  # BE (confined concrete)
+
 
     # -------------------------- Concrete7 model --------------------------------------------
-    ops.uniaxialMaterial('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
-    ops.uniaxialMaterial('Concrete07', concBE, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)  # BE (confined concrete)
+    # ops.uniaxialMaterial('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
+    # ops.uniaxialMaterial('Concrete07', concBE, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)  # BE (confined concrete)
     # print('--------------------------------------------------------------------------------------------------')
     # print('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
     # print('Concrete07', concBE, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)  # BE (confined concrete)
 
+    # ---------------------------------------------------------------------------------------
+    # Plot the model
+    # ---------------------------------------------------------------------------------------
+    # plt.figure(figsize=(6, 4), dpi=100)
+    # vfo.plot_model()
+    # plt.show()
     # ----------------------------Shear spring for MVLEM-------------------------------------
     Ac = lw * tw  # Concrete Wall Area
     Gc = Ec0 / (2 * (1 + 0.2))  # Shear Modulus G = E / 2 * (1 + v)
@@ -249,12 +261,28 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     ops.uniaxialMaterial('Elastic', 6, Kshear)
 
     # ---- Steel in Y direction (BE + Web) -------------------------------------------
-    # print('rouYb =', rouYb)
-    # print('rouYw =', rouYw)
+    print('rouYb =', rouYb)
+    print('rouYw =', rouYw)
 
     # ---- Steel in X direction (BE + Web) -------------------------------------------
-    # print('rouXb =', rouXb)
-    # print('rouXw =', rouXw)
+    rouXb = 0.0105
+    rouXw = 0.0030
+    print('rouXb =', rouXb)
+    print('rouXw =', rouXw)
+
+    # ---------------------------------------------------------------------------------------
+    # Define FSAM nDMaterial
+    # ---------------------------------------------------------------------------------------
+    matBE = 7
+    matWeb = 8
+
+    # FSAM model
+    ops.nDMaterial('FSAM', matBE, 0.0, sX, sYb, concBE, rouXb, rouYb, 0.2, 0.01)  # Boundary (confined concrete)
+    ops.nDMaterial('FSAM', matWeb, 0.0, sX, sYw, concWeb, rouXw, rouYw, 0.2, 0.01)  # Web (unconfined concrete)
+    print('--------------------------------------------------------------------------------------------------')
+    print('FSAM', matBE, 0.0, sX, sYb, concBE, rouXb, rouYb, 0.6, 0.005)  # Boundary (confined concrete)
+    print('FSAM', matWeb, 0.0, sX, sYw, concWeb, rouXw, rouYw, 0.6, 0.005)  # Web (unconfined concrete)
+    print('--------------------------------------------------------------------------------------------------')
 
     # --------------------------------------------------------------------------------
     #  Define 'MVLEM' elements
@@ -269,10 +297,23 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     MVLEM_matConcrete = [concBE if i in (0, n - 1) else concWeb for i in range(n)]
     MVLEM_matSteel = [sYb if i in (0, n - 1) else sYw for i in range(n)]
 
+    MVLEM_mat = [matBE if i in (0, n - 1) else matWeb for i in range(n)]
+
     for i in range(eleH):
         # ------------------ MVLEM ----------------------------------------------
-        ops.element('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 6)
+        # ops.element('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 6)
         # print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 6)
+
+        # ---------------- SFI_MVLEM -------------------------------------------
+        ops.element('SFI_MVLEM', i + 1, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
+        print('SFI_MVLEM', i + 1, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
+
+        # ops.element('E_SFI', i + 1, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
+        # print('E_SFI', i + 1, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
+
+        # ---------------- SFI_MVLEM_3D -------------------------------------------
+        # print('SFI_MVLEM_3D', i + 1, *[i + 2, i + 1, i + 41, i + 42], eleL, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
+        # ops.element('SFI_MVLEM_3D', i + 1, *[i + 2, i + 1, i + 41, i + 42], eleL, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
 
     parameter_values = [tw, hw, lw, lbe, fc, fyb, fyw, round(rouYb, 4), round(rouYw, 4), loadcoef]
 
@@ -291,7 +332,7 @@ def run_gravity(steps=10, printProgression=True):
     ops.constraints('Transformation')
     ops.numberer('RCM')
     ops.system('BandGeneral')
-    ops.test('NormDispIncr', 1.0e-6, 100, 0)
+    ops.test('NormDispIncr', 1e-6, 100, 0)
     ops.algorithm('Newton')
     ops.integrator('LoadControl', 1 / steps)
     ops.analysis('Static')
@@ -305,20 +346,18 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
     if printProgression:
         tic = time.time()
         print("RUNNING CYCLIC ANALYSIS")
-
     if recordData:
         print("RECORDING SHEAR LOAD VS DISPLACEMENT DATA")
-        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Reaction.out', '-closeOnWrite', '-node', 1, '-dof', ControlNodeDof, 'reaction')
-        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Displacement.out', '-closeOnWrite', '-node', ControlNode, '-dof', ControlNodeDof, 'disp')
-
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Reaction.out', '-closeOnWrite', '-node', 1, '-dof', 1, 'reaction')
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Cyclic_Displacement.out', '-closeOnWrite', '-node', ControlNode, '-dof', 1, 'disp')
     ops.timeSeries('Linear', 2)
     ops.pattern('Plain', 2, 2)
     ops.load(ControlNode, *[1.0, 0.0, 0.0])  # Apply lateral load based on first mode shape in x direction (EC8-1)
     ops.constraints('Transformation')  # Transformation 'Penalty', 1e20, 1e20
     ops.numberer('RCM')
-    ops.system("BandGeneral")
-    ops.test('NormDispIncr', 1e-9, 300, 0)
-    ops.algorithm('KrylovNewton')
+    ops.system("BandGen")
+    ops.test('NormDispIncr', 1e-9, 100, 0)
+    ops.algorithm('Newton')
 
     # Define analysis parameters
     maxUnconvergedSteps = 10
@@ -354,20 +393,21 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
                 ok = ops.analyze(1)
                 # ------------------------ If not converged --------------------------------------------
                 if ok != 0:
-                    if ok != 0:
-                        print("Trying Newton with Initial Tangent ..")
-                        ops.test('NormDispIncr', 1e-9, 1000, 0)
-                        ops.algorithm('Newton', '-initial')
-                        ok = ops.analyze(1)
-                    if ok != 0:
-                        print("Trying Broyden ..")
-                        ops.test('NormDispIncr', 1e-9, 1000, 0)
-                        ops.algorithm('Broyden', 500)
-                        ok = ops.analyze(1)
-                    ops.test('NormDispIncr', 1e-9, 300, 0)
-                    ops.algorithm('KrylovNewton')
-                    if ok != 0:
-                        print("Problem running Cyclic analysis for the model")
+                    ok = analysisLoopDisp(ok, j, Dincr, ControlNode, ControlNodeDof)
+                    # if ok != 0:
+                    #     print("Trying Newton with Initial Tangent ..")
+                    #     ops.test('NormDispIncr', 1e-9, 1000, 0)
+                    #     ops.algorithm('Newton', '-initial')
+                    #     ok = ops.analyze(1)
+                    # if ok != 0:
+                    #     print("Trying Broyden ..")
+                    #     ops.test('NormDispIncr', 1e-9, 1000, 0)
+                    #     ops.algorithm('Broyden', 500)
+                    #     ok = ops.analyze(1)
+                    # ops.test('NormDispIncr', 1e-9, 300, 0)
+                    # ops.algorithm('KrylovNewton')
+                    # if ok != 0:
+                    #     print("Problem running Cyclic analysis for the model")
 
         D0 = D1  # move to next step
         finishedSteps = j + 1
@@ -380,9 +420,10 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
             print(f'\033[92m InputDisplacement {j} = {DisplacementStep[j]}\033[0m')
             print(f'\033[91mOutputDisplacement {j} = {dispData[j + 1]}\033[0m')
 
-    if printProgression:
-        toc = time.time()
-        print('CYCLIC ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
+
+    # if printProgression:
+    #     toc = time.time()
+    #     print('CYCLIC ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
 
     # if plotResults:
     #     force_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Reaction.out')
@@ -410,30 +451,33 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
 
 
 def run_pushover(MaxDisp=75, DispIncr=1, plotResults=True, printProgression=True, recordData=False):
+    DispIncr = MaxDisp / 500
     if printProgression:
         tic = time.time()
         print("RUNNING PUSHOVER ANALYSIS")
 
     if recordData:
-        ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Reaction.out', '-node', 1, '-dof', ControlNodeDof, 'reaction')
-        ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Displacement.out', '-node', ControlNode, '-dof', ControlNodeDof, 'disp')
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Reaction.out', '-node', 1, '-dof', 1, 'reaction')
+        ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Displacement.out', '-node', ControlNode, '-dof', 1, 'disp')
 
     ops.timeSeries('Linear', 3)  # create TimeSeries for gravity analysis
     ops.pattern('Plain', 3, 3)
     ops.load(ControlNode, *[1.0, 0.0, 0.0])  # Apply a unit reference load in DOF=1 (nd    FX  FY  MZ)
 
-    NstepsPush = round(MaxDisp / DispIncr)
-    print("   total steps: ", NstepsPush)
+    NstepsPush = int(MaxDisp / DispIncr)
+
     if printProgression:
         print("Starting pushover analysis...")
         print("   total steps: ", NstepsPush)
     ops.constraints('Transformation')
     ops.numberer("RCM")
     ops.system("BandGen")
-    ops.test('NormDispIncr', 1e-8, 1000, 0)
-    ops.algorithm('KrylovNewton')
+    ops.test('NormDispIncr', 1e-5, 100, 0)
+    ops.algorithm('NewtonLineSearch')
+    ops.integrator("DisplacementControl", ControlNode, 1, DispIncr)  # Target node is ControlNode and dof is 1
+    ops.analysis("Static")
 
-    maxUnconvergedSteps = 5
+    maxUnconvergedSteps = 10
     unconvergeSteps = 0
     finishedSteps = 0
     dataPush = np.zeros((NstepsPush + 1, 2))
@@ -442,41 +486,12 @@ def run_pushover(MaxDisp=75, DispIncr=1, plotResults=True, printProgression=True
     for j in range(NstepsPush):
         if unconvergeSteps > maxUnconvergedSteps:
             break
-        ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, DispIncr)  # Target node is ControlNode and dof is 1
-        ops.analysis("Static")
         ok = ops.analyze(1)
-        if ok != 0:
-            # ------------------------ If not converged, reduce the increment -------------------------
-            unconvergeSteps += 1
-            Dts = 10  # Try 10x smaller increments
-            smallDincr = DispIncr / Dts
-            for k in range(1, Dts):
-                if printProgression:
-                    print(f'Small Step {k} -------->', f'smallDincr = ', smallDincr)
-                ops.integrator("DisplacementControl", ControlNode, 1, smallDincr)
-                ops.analysis('Static')
-                ok = ops.analyze(1)
-                # ------------------------ If not converged --------------------------------------------
-                if ok != 0:
-                    if ok != 0:
-                        print("Trying Newton with Initial Tangent ..")
-                        ops.test('NormDispIncr', 1e-9, 1000, 0)
-                        ops.algorithm('Newton', '-initial')
-                        ok = ops.analyze(1)
-                        ops.test('NormDispIncr', 1e-9, 300, 0)
-                        ops.algorithm('KrylovNewton')
-                    if ok != 0:
-                        print("Trying Broyden ..")
-                        ops.test('NormDispIncr', 1e-9, 1000, 0)
-                        ops.algorithm('Broyden', 500)
-                        ok = ops.analyze(1)
-                        ops.test('NormDispIncr', 1e-9, 300, 0)
-                        ops.algorithm('KrylovNewton')
-                    if ok != 0:
-                        print("Problem running Pushover analysis for the model")
+        if ok < 0:
+            unconvergeSteps = unconvergeSteps + 1
 
         DispImpo += DispIncr
-        finishedSteps = j + 1
+        finishedSteps = j
         disp = ops.nodeDisp(ControlNode, 1)
         baseShear = -ops.getLoadFactor(3) / 1000  # Convert to from N to kN
         dataPush[j + 1, 0] = disp

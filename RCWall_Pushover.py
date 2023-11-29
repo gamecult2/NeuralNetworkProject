@@ -269,7 +269,7 @@ def run_pushover(steps=200, MaxDisp=75, DispIncr=0.1, plotDeformedGravity=False,
     ops.system("BandGeneral")
     ops.test('NormDispIncr', 1e-6, 100, 0)
     ops.algorithm('Newton')
-    ops.integrator("DisplacementControl", IDctrlNode, 1, DispIncr)  # Target node is IDctrlNode and dof is 1
+    ops.integrator("DisplacementControl", IDctrlNode, 1, DispIncr)  # Target node is ControlNode and dof is 1
     ops.analysis("Static")
 
     maxUnconvergedSteps = 10

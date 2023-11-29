@@ -38,11 +38,11 @@ def generate_peaks(Dmax, max_points=1000, CycleType="Full", Fact=1, Ncycles=1, o
                             outFileID.write(f'{Disp}\n')  # Write only the numeric value
 
 # Input parameters
-Dmax = [3.5,5.2,6.5,9.7,11.5,13.15,14.5,16.35,18.40,20]
+Dmax = [12.7, 17.78, 25.4, 35.56, 54.61]
 max_points = 1000  # Maximum total number of points
 CycleType = "Full"
 Fact = 1
-Ncycles = 1  # Specify the number of repeated cycles at each peak
+Ncycles = 2  # Specify the number of repeated cycles at each peak
 
 # Generate and append displacement increments to the same file
 generate_peaks(Dmax, max_points, CycleType, Fact, Ncycles)

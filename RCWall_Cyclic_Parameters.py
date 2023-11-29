@@ -3,6 +3,8 @@ from Units import *
 import random
 import csv
 
+random.seed(22)
+
 def generate_cyclic_load(max_displacement=65):
     duration = 10
     sampling_rate = 50
@@ -45,13 +47,10 @@ maxParameters = [
 minDisplacement = [
     10 * mm
 ]
+
 maxDisplacement = [
     200 * mm
 ]
-
-
-# Set a seed to make random numbers reproducible
-random.seed(22)
 
 # Define the number of samples and the number of cyclic loads for each sample
 num_samples = 1
