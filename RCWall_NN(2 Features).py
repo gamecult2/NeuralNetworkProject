@@ -3,13 +3,13 @@ import tensorflow as tf
 from keras.models import Model
 from keras.optimizers import Adam, SGD
 from keras.metrics import MeanSquaredError, MeanAbsoluteError, MeanSquaredLogarithmicError, RootMeanSquaredError
-from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D, Softmax, Dropout, Activation, CuDNNLSTM, MultiHeadAttention, MaxPooling1D, LayerNormalization, Add, TimeDistributed
+from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D, Softmax, Dropout, Activation, CuDNNLSTM, MultiHeadAttention, MaxPooling1D, LayerNormalization, Add
 import keras.callbacks
-from keras.utils import pad_sequences
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import matplotlib.pyplot as plt
 import os
+
 
 # Allocate space for Bidirectional(LSTM)
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
@@ -20,39 +20,46 @@ physical_devices = tf.config.list_physical_devices('GPU')
 print("Num GPUs:", len(physical_devices))
 
 # Define the number of sample to be used
-max_rows = 400
+max_rows = 300
 num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
-num_timeseries = 500
-# ---------------------- Read Data  -------------------------------
+# ---------------------- Read Data  --------------------------------------------------------------
 # Input files (Structural Parameters + Cyclic Loading)
 InputParameters = np.genfromtxt("RCWall_Data/InputParameters_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
-InputDisplacement = np.genfromtxt("RCWall_data/InputDisplacement_values.csv", delimiter=',', max_rows=max_rows, usecols=range(num_timeseries)).astype(np.float32)
+InputDisplacement = np.genfromtxt("RCWall_data/InputDisplacement_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
 # Output files (Hysteresis Curve)
-OutputCyclicDisplacement = np.genfromtxt("RCWall_data/OutputCyclicDisplacement_values.csv", delimiter=',', max_rows=max_rows, usecols=range(num_timeseries)).astype(np.float32)
-OutputCyclicShear = np.genfromtxt("RCWall_data/OutputCyclicShear_values.csv", delimiter=',', max_rows=max_rows, usecols=range(num_timeseries)).astype(np.float32)
+OutputCyclicDisplacement = np.genfromtxt("RCWall_data/OutputCyclicDisplacement_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
+OutputCyclicShear = np.genfromtxt("RCWall_data/OutputCyclicShear_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
 # Output files (Pushover Curve)
-# OutputPushoverDisplacement = np.genfromtxt("RCWall_data/OutputPushoverDisplacement_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
-# OutputPushoverShear = np.genfromtxt("RCWall_data/OutputPushoverShear_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
+OutputPushoverDisplacement = np.genfromtxt("RCWall_data/OutputPushoverDisplacement_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
+OutputPushoverShear = np.genfromtxt("RCWall_data/OutputPushoverShear_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
 
-# ---------------------- Data Normalization  ----------------------
-# Input Normalization
+# ---------------------- Data Normalization  -----------------------------------------------------
+# Input Normalization (Structural Parameters + Cyclic Loading)
 param_scaler = MinMaxScaler()
 Normalized_InputParameters = param_scaler.fit_transform(InputParameters)
 displacement_scaler = StandardScaler()
 Normalized_InputDisplacement = displacement_scaler.fit_transform(InputDisplacement.T).T
-# Output Normalization
-output_displacement_scaler = StandardScaler()
-Normalized_OutputCyclicDisplacement = output_displacement_scaler.fit_transform(OutputCyclicDisplacement.T).T
-output_shear_scaler = StandardScaler()
-Normalized_OutputCyclicShear = output_shear_scaler.fit_transform(OutputCyclicShear.T).T
+# Output Normalization (Hysteresis Curve)
+output_CyclicDisplacement_scaler = StandardScaler()
+Normalized_OutputCyclicDisplacement = output_CyclicDisplacement_scaler.fit_transform(OutputCyclicDisplacement.T).T
+output_CyclicShear_scaler = StandardScaler()
+Normalized_OutputCyclicShear = output_CyclicShear_scaler.fit_transform(OutputCyclicShear.T).T
+# Output Normalization (Pushover Curve)
+output_PushoverDisplacement_scaler = StandardScaler()
+Normalized_OutputPushoverDisplacement = output_PushoverDisplacement_scaler.fit_transform(OutputPushoverDisplacement.T).T
+output_PushoverShear_scaler = StandardScaler()
+Normalized_OutputPushoverShear = output_PushoverShear_scaler.fit_transform(OutputPushoverShear.T).T
 
-# ---------------------- Save Normalized Data --------------------
+# ---------------------- Save Normalized Data ---------------------------------------------------
 # Save normalized Input data to CSV files
 np.savetxt("RCWall_Data/Normalized_InputParameters.csv", Normalized_InputParameters, delimiter=',')
 np.savetxt("RCWall_Data/Normalized_InputDisplacement.csv", Normalized_InputDisplacement, delimiter=',')
 # Save normalized Output data to CSV files
 np.savetxt("RCWall_Data/Normalized_OutputCyclicDisplacement.csv", Normalized_OutputCyclicDisplacement, delimiter=',')
 np.savetxt("RCWall_Data/Normalized_OutputCyclicShear.csv", Normalized_OutputCyclicShear, delimiter=',')
+# Save normalized Output data to CSV files
+np.savetxt("RCWall_Data/Normalized_OutputPushoverDisplacement.csv", Normalized_OutputPushoverDisplacement, delimiter=',')
+np.savetxt("RCWall_Data/Normalized_OutputPushoverShear.csv", Normalized_OutputPushoverShear, delimiter=',')
 
 # Organize the Generate data
 num_samples, parameters_length = InputParameters.shape
@@ -66,6 +73,12 @@ print('----------------------------------------')
 print('InputParameters Shape = ', Normalized_InputParameters.shape)
 print('InputDisplacement Shape = ', Normalized_InputDisplacement.shape)
 print('----------------------------------------')
+print('OutputCyclicDisplacement Shape = ', Normalized_OutputCyclicDisplacement.shape)
+print('OutputCyclicShear Shape = ', Normalized_OutputCyclicShear.shape)
+print('----------------------------------------')
+print('OutputCyclicDisplacement Shape = ', Normalized_OutputCyclicDisplacement.shape)
+print('OutputCyclicShear Shape = ', Normalized_OutputCyclicShear.shape)
+print('----------------------------------------')
 
 # ---------------------- Split Data -------------------------------
 # Split data into training, validation, and testing sets (X: Inputs & Y: Outputs)
@@ -75,43 +88,20 @@ X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, 
 # ---------------------- NN Model Building -------------------------
 # Build the neural network model using functional API
 # Layer 1
-input_parameters = Input(shape=(parameters_length,), name='input_parameters')
-dense_layer = Dense(sequence_length)(input_parameters)  # Dense layer for influencing parameters 32, activation='relu' or sequence_length
+parameters_input = Input(shape=(parameters_length,), name='parameters_input')
+dense_layer = Dense(32)(parameters_input)  # Dense layer for influencing parameters 32, activation='relu' or sequence_length
 flat1 = Flatten()(dense_layer)
-rflat1 = Reshape((sequence_length, num_features))(flat1)
-print('input_parameters ', input_parameters.shape)
-print('dense_layer ', dense_layer.shape)
-print('flat1 ', flat1.shape)
-print('rflat1 ', rflat1.shape)
+
+# Layer 1 - Replace Dense layer with 1D Convolutional Layer
+# parameters_input = Input(shape=(parameters_length, num_features), name='parameters_input')
+# conv1d_layer = Conv1D(32, kernel_size=2, activation='relu')(parameters_input)  # 1D Convolutional Layer
+# maxpool_layer = MaxPooling1D(pool_size=3)(conv1d_layer)
+# flat1 = Flatten()(maxpool_layer)
+
 # Layer 2
-input_displacement = Input(shape=(sequence_length, num_features), name='input_displacement')
-lstm_layer = LSTM(sequence_length, return_sequences=True)(input_displacement)  # Bidirectional LSTM layer
-flat2 = Flatten()(lstm_layer)
-print('input_displacement ', input_displacement.shape)
-print('lstm_layer ', lstm_layer.shape)
-print('flat2 ', flat2.shape)
-# Concatenate expanded input parameters and time series displacement
-
-merged_inputs = concatenate([rflat1, lstm_layer])
-print('merged_inputs ', merged_inputs.shape)
-# Reshape to (timesteps, features)
-# reshaped_input = Reshape((sequence_length + parameters_length, num_features))(merged_inputs)
-
-# LSTM layers to capture temporal dependencies
-# lstm_1 = LSTM(32, return_sequences=True)(reshaped_input)
-# lstm_1_dropout = Dropout(0.2)(lstm_1)
-# lstm_2 = LSTM(sequence_length, return_sequences=True)(lstm_1_dropout)
-# lstm_2_dropout = Dropout(0.2)(lstm_2)
-# flat = Flatten()(lstm_2_dropout)
-# dense_layer = Dense(sequence_length)(flat)
-
-# Reshape to (timesteps, features)
-# reshaped_input = Reshape((sequence_length + 32, num_features))(concatenated_input)
-
-# LSTM layer to capture temporal patterns
-# lstm_encoder = CuDNNLSTM(32, return_sequences=True, stateful=False)(reshaped_input)
-# lstm_decoder = CuDNNLSTM(sequence_length, return_sequences=True)(lstm_encoder)
-# flat = Flatten()(lstm_decoder)
+displacement_input = Input(shape=(sequence_length, num_features), name='displacement_input')
+# lstm_layer = LSTM(sequence_length, return_sequences=True)(displacement_input)  # Bidirectional LSTM layer
+# flat2 = Flatten()(lstm_layer)
 
 # 1D Convolutional Layer for displacement input
 # conv_layer = Conv1D(sequence_length, kernel_size=3, activation='relu')(displacement_input)
@@ -122,16 +112,20 @@ print('merged_inputs ', merged_inputs.shape)
 # lstm_layer = LSTM(sequence_length, return_sequences=True)(displacement_input)
 # flat3 = Dense(sequence_length, activation='relu')(Flatten()(lstm_layer))
 
+# LSTM Autoencoder Model
+# lstm_encoder = CuDNNLSTM(32, return_sequences=True, stateful=False)(displacement_input)
+# lstm_decoder = CuDNNLSTM(sequence_length, return_sequences=False)(lstm_encoder)
+# flat2 = Flatten()(lstm_decoder)
+
+# LSTM Autoencoder Model
+lstm_encoder = CuDNNLSTM(32, return_sequences=True)(displacement_input)
+lstm_decoder = CuDNNLSTM(sequence_length, return_sequences=False)(lstm_encoder)
+flat2 = Flatten()(lstm_decoder)
+
 # Self-Attention Transformer Layer
-# First
 # normalized_displacement = LayerNormalization(epsilon=1e-6)(displacement_input)
-# self_attention1 = MultiHeadAttention(num_heads=4, key_dim=sequence_length // 8)(normalized_displacement, normalized_displacement)
-# residual_connection1 = Add()([self_attention1, normalized_displacement])
-# Second
-# normalized_residual1 = LayerNormalization(epsilon=1e-6)(residual_connection1)
-# self_attention2 = MultiHeadAttention(num_heads=4, key_dim=sequence_length // 8)(normalized_residual1, normalized_residual1)
-# residual_connection2 = Add()([self_attention2, normalized_residual1])
-# flat2 = Flatten()(residual_connection2)
+# self_attention = MultiHeadAttention(num_heads=4, key_dim=sequence_length // 8)(normalized_displacement, normalized_displacement)
+# residual_connection = Add()([self_attention, normalized_displacement])
 
 # Feedforward block
 # feedforward = LayerNormalization(epsilon=1e-6)(self_attention)
@@ -139,21 +133,20 @@ print('merged_inputs ', merged_inputs.shape)
 # feedforward = Conv1D(32, kernel_size=2)(feedforward)
 # flat2 = Flatten()(feedforward)
 
-# Merge the 2 input layers with concatenate LSTM and Dense layers
-# merged = concatenate([dense_layer, flat2])
-# reshaped = Reshape((sequence_length + 32, num_features))(merged)
 # LSTM Autoencoder Model
-lstm_encoder = CuDNNLSTM(32, return_sequences=True, stateful=False)(merged_inputs)
-lstm_decoder = CuDNNLSTM(sequence_length, return_sequences=True)(lstm_encoder)
-flat2 = Flatten()(lstm_decoder)
+# lstm_encoder = CuDNNLSTM(32, return_sequences=True, stateful=False)(displacement_input)
+# lstm_decoder = CuDNNLSTM(sequence_length, return_sequences=True)(lstm_encoder)
+# flat2 = Flatten()(lstm_decoder)
+
+# Merge the 2 input layers with concatenate LSTM and Dense layers
+merged = concatenate([flat1, flat2])
 
 # ---------------------- Output layer --------------------------------------------
-output_shear = Dense(sequence_length, name='output_shear')(flat2)  # Shear
-output_displacement = Dense(sequence_length, name='output_displacement')(flat2)  # Displacement
-print('output_shear ', output_shear.shape)
+shear_output = Dense(sequence_length, name='shear_output')(merged)  # Shear
+displacement_output = Dense(sequence_length, name='displacement_output')(merged)  # Displacement
 
 # ---------------------- Build the model ------------------------------------------
-model = Model(inputs=[input_parameters, input_displacement], outputs=[output_shear, output_displacement])
+model = Model(inputs=[parameters_input, displacement_input], outputs=[shear_output, displacement_output])
 
 # ---------------------- Compile the model -----------------------------------------
 # Define Adam and SGD optimizers
@@ -162,7 +155,7 @@ model.compile(optimizer=adam_optimizer,
               loss='mse',
               metrics=['mse', 'accuracy']) #
 
-# ---------------------- Print Model summary ---------------------------------------------
+# ---------------------- Model summary ---------------------------------------------
 model.summary()
 
 # ---------------------- Define the checkpoint callback ----------------------------
@@ -178,12 +171,12 @@ early_stopping = keras.callbacks.EarlyStopping(
 history = model.fit(
     [X_parameter_train, X_displacement_train],  # Input layer (GMA + STRUCTURAL PARAMETERS)
     [Y_shear_train, Y_displacement_train],  # Output layer (SHEAR)
-    epochs=100,
-    batch_size=16,
+    epochs=200,
+    batch_size=32,
     validation_split=0.2,
     callbacks=[early_stopping]  # checkpoint_callback or early_stopping
 )
-# ---------------------- Save the model ---------------------------------------------
+
 # model.save("NN_functionalAPI_DynamicSystem")  # Save the model after training
 
 # ---------------------- Plot Accuracy and Loss ----------------------------------------
@@ -251,20 +244,20 @@ for i in range(test_index):
     plt.show()
 
 # Plot the predicted displacement
-plt.figure(figsize=(10, 6))
-for i in range(test_index):
-    plt.plot(predicted_displacement[i], label=f'Predicted displacement - {i + 1}')
-    plt.plot(real_displacement[i], label=f'Real displacement - {i + 1}')
-    plt.plot(new_input_displacement[i], label=f'Input displacement  - {i + 1}')
-    plt.xlabel('Time Step', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.ylabel('Shear Load', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.title('Predicted Displacement Time Series', {'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
-    plt.yticks(fontname='Cambria', fontsize=14)
-    plt.xticks(fontname='Cambria', fontsize=14)
-    plt.tight_layout()
-    plt.legend()
-    plt.grid()
-    plt.show()
+# plt.figure(figsize=(10, 6))
+# for i in range(test_index):
+#     plt.plot(predicted_displacement[i], label=f'Predicted displacement - {i + 1}')
+#     plt.plot(real_displacement[i], label=f'Real displacement - {i + 1}')
+#     plt.plot(new_input_displacement[i], label=f'Input displacement  - {i + 1}')
+#     plt.xlabel('Time Step', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+#     plt.ylabel('Shear Load', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+#     plt.title('Predicted Displacement Time Series', {'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
+#     plt.yticks(fontname='Cambria', fontsize=14)
+#     plt.xticks(fontname='Cambria', fontsize=14)
+#     plt.tight_layout()
+#     plt.legend()
+#     plt.grid()
+#     plt.show()
 #
 # Plot the predicted displacement
 plt.figure(figsize=(10, 6))

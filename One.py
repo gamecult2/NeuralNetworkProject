@@ -237,7 +237,7 @@ Kshear = Ac * Gc * (5 / 6)  # Shear stiffness k * A * G ---> k=5/6
 
 ops.uniaxialMaterial('Elastic', 6, Kshear)  # Shear Model for Section Aggregator
 
-Aload = 0.85 * abs(fc) * tw * lw * loadcoef  # Aload = 0.07 * abs(fc) * tw * lw * loadcoef
+Aload = 0.85 * abs(fc) * tw * lw * loadcoef  # Aload = 0.07 * abs(fc) * tw * lw * loadCoeff
 print('Axial load (kN) = ', Aload / 1000)
 
 # ---- Steel in Y direction (BE + Web) -------------------------------------------

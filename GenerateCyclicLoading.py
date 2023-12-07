@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -13,8 +15,12 @@ def generate_increasing_cyclic_loading(num_cycles=6, initial_displacement=0, max
 
     return displacement
 
+timeseries_length = 1000
+num_points = math.ceil(timeseries_length / (12 * 2))
 
-displacement = generate_increasing_cyclic_loading(num_cycles=5, initial_displacement=10, max_displacement=54, num_points=50, repetition_cycles=2)
+print(num_points)
+displacement = generate_increasing_cyclic_loading(num_cycles=12, initial_displacement=1, max_displacement=120, num_points=42, repetition_cycles=2)
+
 
 # Plot the cyclic loading
 print(len(displacement))

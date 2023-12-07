@@ -29,7 +29,7 @@ minParameters = [
     380 * MPa,     # (fy) Steel Yield Strength
     0.01,          # (rhoBE) BE long reinforcement ratio (Minimum = 0.01)
     0.0025,        # (rhoWEB) WEB long reinforcement ratio (Minimum = 0.0025)
-    0.01           # (loadcoef) axial load ratio
+    0.01           # (loadCoeff) axial load ratio
 ]
 
 maxParameters = [
@@ -41,7 +41,7 @@ maxParameters = [
     630 * MPa,     # (fy) Steel Yield Strength
     0.04,          # (rhoBE) BE long reinforcement ratio
     0.025,         # (rhoWEB) WEB long reinforcement ratio
-    0.1            # (loadcoef) axial load ratio
+    0.1            # (loadCoeff) axial load ratio
 ]
 
 minDisplacement = [
@@ -59,7 +59,7 @@ num_cyclic = 3
 # Create a list to store all the samples
 all_samples = []
 
-parameter_labels = ["tw", "hw", "lw", "lbe", "fc", "fy", "rouYb", "rouYw", "loadcoef"] + ["cyclic_displacement"]
+parameter_labels = ["tw", "hw", "lw", "lbe", "fc", "fy", "rouYb", "rouYw", "loadCoeff"] + ["cyclic_displacement"]
 
 for sample_index in range(num_samples):
     # Generate parameter values for the main sample

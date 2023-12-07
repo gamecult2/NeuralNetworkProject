@@ -1,52 +1,11 @@
 import math
 import time
-
 import matplotlib.pyplot as plt
 import numpy as np
 import openseespy.opensees as ops
 # import vfo.vfo as vfo
 # import opsvis as opsv
-
 from Units import *
-
-
-def analysisLoopDisp(ok, step, Dincr, ControlNode, ControlNodeDof):
-    # The displacement control analysis loop.
-    if ok != 0:
-        print("Trying 5 times smaller timestep at step", step, Dincr / 5)
-        ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr / 5)
-        ok = ops.analyze(1)
-
-    if ok != 0:
-        print("Trying 20 times smaller timestep at step", step)
-        ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr / 20)
-        ok = ops.analyze(1)
-
-    if ok != 0:
-        print("Trying 80 times smaller timestep at step", step)
-        ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr / 80)
-        ok = ops.analyze(1)
-
-    if ok != 0:
-        print("Trying 160 times smaller timestep at step", step)
-        ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr / 160)
-        ok = ops.analyze(1)
-
-    if ok != 0:
-        print("Trying 1000 times smaller timestep at step", step)
-        ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr / 1000)
-        ok = ops.analyze(1)
-
-    if ok != 0:
-        print("Trying ModifiedNewton at load factor", step)
-        ops.algorithm("ModifiedNewton")
-        ops.test('NormDispIncr', 1. * 10 ** -6, 200)
-        ok = ops.analyze(1)
-
-    ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr)
-    ops.algorithm("Newton")
-    ops.test('NormDispIncr', 1. * 10 ** -10, 50)
-    return ok
 
 
 def reset_analysis():
@@ -88,7 +47,7 @@ def RebarArea(RebarDiametermm):
     return a
 
 
-def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, eleL=8, printProgression=True):
+def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, eleH=16, eleL=8, printProgression=True):
     ops.wipe()
     ops.model('basic', '-ndm', 2, '-ndf', 3)  # Model of 2 dimensions, 3 dof per node
 
@@ -121,7 +80,7 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     ops.fix(1, 1, 1, 1)  # Fixed condition at node 1
 
     # ---------------------------------------------------------------------------------------
-    # Define Control Node and DOF
+    # Define Control Node and DOF                                                   ||
     # ---------------------------------------------------------------------------------------
     global ControlNode, ControlNodeDof
     ControlNode = eleH + 1  # Control Node (TopNode)
@@ -131,7 +90,7 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     # Define Axial Load on Top Node
     # ---------------------------------------------------------------------------------------
     global Aload  # axial force in N according to ACI318-19 (not considering the reinforced steel at this point for simplicity)
-    Aload = 0.85 * abs(fc) * tw * lw * loadcoef
+    Aload = 0.85 * abs(fc) * tw * lw * loadCoeff
     # print('Axial load (kN) = ', Aload / 1000)
 
     # ---------------------------------------------------------------------------------------
@@ -147,14 +106,14 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     # STEEL Y BE (boundary element)
     fyYbp = fyb  # fy - tension
     fyYbn = fyb  # fy - compression
-    bybp = 0.01  # strain hardening - tension
-    bybn = 0.01  # strain hardening - compression
+    bybp = 0.02  # strain hardening - tension
+    bybn = 0.02  # strain hardening - compression
 
     # STEEL Y WEB
     fyYwp = fyw  # fy - tension
     fyYwn = fyw  # fy - compression
-    bywp = 0.01  # strain hardening - tension
-    bywn = 0.01  # strain hardening - compression
+    bywp = 0.02  # strain hardening - tension
+    bywn = 0.02  # strain hardening - compression
 
     # STEEL X
     fyXp = fyw  # fy - tension
@@ -166,7 +125,8 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     Bs = 0.01  # strain-hardening ratio
     R0 = 20.0  # initial value of curvature parameter
     cR1 = 0.925  # control the transition from elastic to plastic branches
-    cR2 = 0.015  # control the transition from elastic to plastic branches
+    cR2 = 0.0015  # control the transition from elastic to plastic branches
+
 
     # SteelMPF model
     ops.uniaxialMaterial('SteelMPF', sYw, fyYwp, fyYwn, Es, bywp, bywn, R0, cR1, cR2)  # Steel Y web
@@ -189,7 +149,7 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     fcU = -fc0 * MPa  # Unconfined concrete strength
     ecU = -(fc0 ** 0.25) / 1150  # Unconfined concrete strain
     EcU = Ec0  # Unconfined elastic modulus
-    ftU = 0.5 * (fc0 ** 0.5) * MPa  # Unconfined tensile strength
+    ftU = 0.45 * (fc0 ** 0.5) * MPa  # Unconfined tensile strength
     etU = 2.0 * ftU / EcU  # Unconfined tensile strain
     xpU = 2.0
     xnU = 2.3
@@ -237,8 +197,8 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     ops.uniaxialMaterial('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
     ops.uniaxialMaterial('Concrete07', concBE, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)  # BE (confined concrete)
     # print('--------------------------------------------------------------------------------------------------')
-    # print('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
-    # print('Concrete07', concBE, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)  # BE (confined concrete)
+    #  print('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
+    #  print('Concrete07', concBE, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)  # BE (confined concrete)
 
     # ----------------------------Shear spring for MVLEM-------------------------------------
     Ac = lw * tw  # Concrete Wall Area
@@ -274,7 +234,7 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
         ops.element('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 6)
         # print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 6)
 
-    parameter_values = [tw, hw, lw, lbe, fc, fyb, fyw, round(rouYb, 4), round(rouYw, 4), loadcoef]
+    parameter_values = [tw, hw, lw, lbe, fc, fyb, fyw, round(rouYb, 4), round(rouYw, 4), loadCoeff]
 
     if printProgression:
         print('--------------------------------------------------------------------------------------------------')
@@ -285,6 +245,7 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
 def run_gravity(steps=10, printProgression=True):
     if printProgression:
         print("RUNNING GRAVITY ANALYSIS")
+
     ops.timeSeries('Linear', 1, '-factor', 1.0)  # create TimeSeries for gravity analysis
     ops.pattern('Plain', 1, 1)
     ops.load(ControlNode, *[0.0, -Aload, 0.0])  # apply vertical load
@@ -317,11 +278,12 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
     ops.constraints('Transformation')  # Transformation 'Penalty', 1e20, 1e20
     ops.numberer('RCM')
     ops.system("BandGeneral")
-    ops.test('NormDispIncr', 1e-9, 300, 0)
+    ops.test('NormDispIncr', 1e-8, 1000, 0)
     ops.algorithm('KrylovNewton')
+    ops.analysis('Static')
 
     # Define analysis parameters
-    maxUnconvergedSteps = 10
+    maxUnconvergedSteps = 3
     unconvergeSteps = 0
     Nsteps = len(DisplacementStep)
     finishedSteps = 0
@@ -338,40 +300,25 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         if unconvergeSteps > maxUnconvergedSteps:
             break
         # ------------------------- first analyze command ---------------------------------------------
-        ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, Dincr)
-        ops.analysis('Static')
+        ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, Dincr, 100)
         ok = ops.analyze(1)
         if ok != 0:
             # ------------------------ If not converged, reduce the increment -------------------------
             unconvergeSteps += 1
-            Dts = 10  # Try 10x smaller increments
+            Dts = 10  # Analysis loop with 10x smaller increments
             smallDincr = Dincr / Dts
             for k in range(1, Dts):
                 if printProgression:
                     print(f'Small Step {k} -------->', f'smallDincr = ', smallDincr)
-                ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, smallDincr)
-                ops.analysis('Static')
-                ok = ops.analyze(1)
-                # ------------------------ If not converged --------------------------------------------
-                if ok != 0:
-                    if ok != 0:
-                        print("Trying Newton with Initial Tangent ..")
-                        ops.test('NormDispIncr', 1e-9, 1000, 0)
-                        ops.algorithm('Newton', '-initial')
-                        ok = ops.analyze(1)
-                    if ok != 0:
-                        print("Trying Broyden ..")
-                        ops.test('NormDispIncr', 1e-9, 1000, 0)
-                        ops.algorithm('Broyden', 500)
-                        ok = ops.analyze(1)
-                    ops.test('NormDispIncr', 1e-9, 300, 0)
-                    ops.algorithm('KrylovNewton')
-                    if ok != 0:
-                        print("Problem running Cyclic analysis for the model")
+                    ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, smallDincr, 100)
+                    ok = ops.analyze(1)
+            # ------------------------ If not converged --------------------------------------------
+            if ok != 0:
+                print("Problem running Cyclic analysis for the model : Ending analysis ")
 
         D0 = D1  # move to next step
         finishedSteps = j + 1
-        disp = ops.nodeDisp(ControlNode, 1)
+        disp = ops.nodeDisp(ControlNode, ControlNodeDof)
         baseShear = -ops.getLoadFactor(2) / 1000  # Convert to from N to kN
         dispData[j + 1] = disp
         baseShearData[j + 1] = baseShear
@@ -384,32 +331,32 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         toc = time.time()
         print('CYCLIC ANALYSIS DONE IN {:1.2f} seconds'.format(toc - tic))
 
-    # if plotResults:
-    #     force_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Reaction.out')
-    #     displacement_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Displacement.out')
-    #     # Plot Force vs. Displacement
-    #     plt.figure(figsize=(7, 6), dpi=100)
-    #     # plt.plot(displacement_data, -force_data, color='blue', linewidth=1.2, label='Numerical test')
-    #     plt.plot(dispData, -baseShearData, color="red", linestyle="-", linewidth=1.2, label='Output Displacement vs Shear Load')
-    #     # plt.plot([row[0] for row in dataCyc[:finishedSteps]], [-row[1] for row in dataCyc[:finishedSteps]], color="black", linestyle="-", linewidth=1.2, label='Output Displacement vs Shear Load')
-    #     # plt.plot(DisplacementStep, [-row[1] for row in dataCyc[:finishedSteps]], color="blue", linestyle="-", linewidth=1.2, label='Input Displacement vs Shear Load')
-    #     plt.axhline(0, color='black', linewidth=0.4)
-    #     plt.axvline(0, color='black', linewidth=0.4)
-    #     plt.grid(linestyle='dotted')
-    #     font_settings = {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14}
-    #     plt.xlabel('Displacement (mm)', fontdict=font_settings)
-    #     plt.ylabel('Base Shear (kN)', fontdict=font_settings)
-    #     plt.yticks(fontname='Cambria', fontsize=14)
-    #     plt.xticks(fontname='Cambria', fontsize=14)
-    #     plt.title(f'Specimen', {'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
-    #     plt.tight_layout()
-    #     plt.legend()
-    #     plt.show()
+    if plotResults:
+        # force_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Reaction.out')
+        # displacement_data = np.loadtxt('RunTimeNodalResults/Cyclic_Horizontal_Displacement.out')
+        # Plot Force vs. Displacement
+        plt.figure(figsize=(7, 6), dpi=100)
+        # plt.plot(DisplacementStep, -baseShearData, color='blue', linewidth=1.2, label='Numerical test')
+        plt.plot(dispData, -baseShearData, color="red", linestyle="-", linewidth=2.2, label='Output Displacement vs Shear Load')
+        # plt.plot([row[0] for row in dataCyc[:finishedSteps]], [-row[1] for row in dataCyc[:finishedSteps]], color="black", linestyle="-", linewidth=1.2, label='Output Displacement vs Shear Load')
+        plt.plot(DisplacementStep[0:finishedSteps], -baseShearData[1:finishedSteps+1], color="blue", linestyle="-", linewidth=1.2, label='Input Displacement vs Shear Load')
+        plt.axhline(0, color='black', linewidth=0.4)
+        plt.axvline(0, color='black', linewidth=0.4)
+        plt.grid(linestyle='dotted')
+        font_settings = {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14}
+        plt.xlabel('Displacement (mm)', fontdict=font_settings)
+        plt.ylabel('Base Shear (kN)', fontdict=font_settings)
+        plt.yticks(fontname='Cambria', fontsize=14)
+        plt.xticks(fontname='Cambria', fontsize=14)
+        plt.title(f'Specimen', {'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
+        plt.tight_layout()
+        plt.legend()
+        plt.show()
 
     return [dispData[0:finishedSteps], -baseShearData[0:finishedSteps]]
 
 
-def run_pushover(MaxDisp=75, DispIncr=1, plotResults=True, printProgression=True, recordData=False):
+def run_pushover(MaxDisp=75, dispIncr=1, plotResults=True, printProgression=True, recordData=False):
     if printProgression:
         tic = time.time()
         print("RUNNING PUSHOVER ANALYSIS")
@@ -422,68 +369,53 @@ def run_pushover(MaxDisp=75, DispIncr=1, plotResults=True, printProgression=True
     ops.pattern('Plain', 3, 3)
     ops.load(ControlNode, *[1.0, 0.0, 0.0])  # Apply a unit reference load in DOF=1 (nd    FX  FY  MZ)
 
-    NstepsPush = round(MaxDisp / DispIncr)
-    print("   total steps: ", NstepsPush)
+    NstepsPush = round(MaxDisp / dispIncr)
+
     if printProgression:
         print("Starting pushover analysis...")
         print("   total steps: ", NstepsPush)
     ops.constraints('Transformation')
     ops.numberer("RCM")
-    ops.system("BandGen")
-    ops.test('NormDispIncr', 1e-8, 1000, 0)
+    ops.system("BandGeneral")
+    ops.test('NormDispIncr', 1e-8, 1000)
     ops.algorithm('KrylovNewton')
+    ops.analysis("Static")
 
-    maxUnconvergedSteps = 5
+    maxUnconvergedSteps = 3
     unconvergeSteps = 0
     finishedSteps = 0
     dataPush = np.zeros((NstepsPush + 1, 2))
-    DispImpo = np.zeros(NstepsPush + 1)
+    dispImpo = np.zeros(NstepsPush + 1)
+
     # Perform pushover analysis
     for j in range(NstepsPush):
         if unconvergeSteps > maxUnconvergedSteps:
             break
-        ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, DispIncr)  # Target node is ControlNode and dof is 1
-        ops.analysis("Static")
+        ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, dispIncr, 100)  # Target node is ControlNode and dof is 1
         ok = ops.analyze(1)
         if ok != 0:
             # ------------------------ If not converged, reduce the increment -------------------------
             unconvergeSteps += 1
-            Dts = 10  # Try 10x smaller increments
-            smallDincr = DispIncr / Dts
+            Dts = 10  # Try 50x smaller increments
+            smallDincr = dispIncr / Dts
             for k in range(1, Dts):
                 if printProgression:
                     print(f'Small Step {k} -------->', f'smallDincr = ', smallDincr)
-                ops.integrator("DisplacementControl", ControlNode, 1, smallDincr)
-                ops.analysis('Static')
+                ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, smallDincr, 100)
                 ok = ops.analyze(1)
-                # ------------------------ If not converged --------------------------------------------
-                if ok != 0:
-                    if ok != 0:
-                        print("Trying Newton with Initial Tangent ..")
-                        ops.test('NormDispIncr', 1e-9, 1000, 0)
-                        ops.algorithm('Newton', '-initial')
-                        ok = ops.analyze(1)
-                        ops.test('NormDispIncr', 1e-9, 300, 0)
-                        ops.algorithm('KrylovNewton')
-                    if ok != 0:
-                        print("Trying Broyden ..")
-                        ops.test('NormDispIncr', 1e-9, 1000, 0)
-                        ops.algorithm('Broyden', 500)
-                        ok = ops.analyze(1)
-                        ops.test('NormDispIncr', 1e-9, 300, 0)
-                        ops.algorithm('KrylovNewton')
-                    if ok != 0:
-                        print("Problem running Pushover analysis for the model")
+            # ------------------------ If not converged --------------------------------------------
+            if ok != 0:
+                print("Problem running Pushover analysis for the model : Ending analysis ")
 
-        DispImpo += DispIncr
+        dispImpo += dispIncr
         finishedSteps = j + 1
-        disp = ops.nodeDisp(ControlNode, 1)
+        disp = ops.nodeDisp(ControlNode, ControlNodeDof)
         baseShear = -ops.getLoadFactor(3) / 1000  # Convert to from N to kN
         dataPush[j + 1, 0] = disp
         dataPush[j + 1, 1] = baseShear
 
         if printProgression:
-            print("step", j + 1, "/", NstepsPush, "   ", "Impos disp = ", round(DispImpo[j], 2), "---->  Real disp = ", str(round(disp, 2)))
+            print("step", j + 1, "/", NstepsPush, "   ", "Impos disp = ", round(dispImpo[j], 2), "---->  Real disp = ", str(round(disp, 2)), "---->  dispIncr = ", dispIncr)
 
     if printProgression:
         toc = time.time()

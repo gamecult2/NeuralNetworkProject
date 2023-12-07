@@ -2,6 +2,7 @@ from Units import *
 import matplotlib.pyplot as plt
 import RCWall_Cyclic_Model as rcmodel
 # import RCWall_Cyclic_Model_SFI as rcmodel
+import openseespy.opensees as ops
 import numpy as np
 
 
@@ -15,7 +16,7 @@ def plotting(x_data, y_data, x_label, y_label, title, save_fig=True, plotValidat
         Test = np.loadtxt(f"CyclicValidation/{title}.txt", delimiter="\t", unpack="False")
         plt.plot(Test[0, :], Test[1, :], color="black", linewidth=1.0, linestyle="--", label='Experimental Data')
 
-    plt.plot(x_data, y_data, color='red', linewidth=1.2, label='Numerical Analysis')
+    plt.plot(x_data, y_data, color='blue', linewidth=1.2, label='Numerical Analysis')
     plt.axhline(0, color='black', linewidth=0.4)
     plt.axvline(0, color='black', linewidth=0.4)
     plt.grid(linestyle='dotted')
@@ -71,15 +72,15 @@ def Dazio_WSH2():
     name = 'Dazio_WSH2'
     # Wall Geometry
     tw = 150 * mm  # Wall thickness
-    hw = 4.56 * m  # Wall height
+    hw = 4.03 * m  # Wall height
     lw = 2.00 * m  # Wall length
-    lbe = 230 * mm  # Boundary element length
+    lbe = 235 * mm  # Boundary element length
     lweb = lw - (2 * lbe)
 
     # Material proprieties
     fc = 40.5 * MPa  # Concrete peak compressive stress (+Tension, -Compression)
-    fyb = 580.1 * MPa  # Steel tension yield strength (+Tension, -Compression)
-    fyw = 580.1 * MPa  # Steel tension yield strength (+Tension, -Compression)
+    fyb = 583.1 * MPa  # Steel tension yield strength (+Tension, -Compression)
+    fyw = 484.9 * MPa  # Steel tension yield strength (+Tension, -Compression)
 
     # ---- Steel in Y direction (BE + Web) -------------------------------------------
     YbeNum = 6  # BE long reinforcement diameter (mm)
@@ -127,6 +128,22 @@ def Dazio_WSH2():
         39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18, -19, -20, -21, -22, -23, -24, -25, -26, -27, -28, -29, -30,
         -31, -32, -33, -34, -35, -36, -37, -38, -39, -40, -41, -42, -43, -44, -45, -46, -47, -48, -49, -50, -51, -52, -53, -54, -55, -56, -57, -58, -59, -60, -61, -62, -63, -62, -61, -60, -59, -58, -57, -56, -55, -54, -53, -52, -51, -50, -49, -48, -47, -46, -45, -44, -43, -42, -41, -40, -39, -38,
         -37, -36, -35, -34, -33, -32, -31, -30, -29, -28, -27, -26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, ]  # Displacement steps For Dazio_WSH2
+    DisplacementStep = [0.0, 0.17279, 1.15758, 3.17098, 5.17158, 7.14658, 5.67736, 4.46955, 2.98325, 1.78398, 0.60604, 0.24649, -0.99119, -1.37633, -2.30139, -4.05764, -6.62374, -8.06737, -10.59508, -11.69623, -13.33301, -11.31534, -8.71937, -5.84065, -4.36715, -2.92352, -1.9942, 0.69563, 1.59936,
+                        2.76877, 4.7907, 2.33669, 0.54204, -0.65724, -3.29161, -5.33061, -6.79983, -9.63589, -13.04599, -10.42442, -7.85405, -4.04173, -2.24282, 0.41288, 4.21666, 5.97717, 9.45127, 12.28733, 15.10632, 17.91252, 17.86985, 17.21048, 14.04474, 10.59624, 7.73032, 4.86439, -0.6103,
+                        -6.17033, -9.65723, -11.96618, -15.09352, -17.89972, -19.86619, -19.24522, -16.34943, -13.45364, -9.74799, -7.13068, -4.53471, -1.09048, 8.0728, 9.57616, 12.42929, 14.18127, 15.89912, 11.71445, 6.57371, 3.982, 0.79493, -3.23187, -6.98446, -10.163, -14.43416, -17.30008,
+                        -18.9966, -17.23182, -13.74065, -8.30436, -5.63585, -1.33057, 0.98692, 6.98872, 10.43722, 14.70837, 17.01733, 19.56637, 22.66812, 26.2927, 28.24637, 28.16957, 26.16044, 24.41699, 22.11657, 18.98069, 16.11477, 13.26591, 10.69127, 7.57246, 4.72787, 0.18249, -5.59203, -9.86318,
+                        -12.46769, -17.27875, -20.42743, -24.90454, -29.6388, -27.88256, -25.27378, -21.55533, -17.27991, -13.00876, -9.58586, -5.02768, -2.16603, 1.85224, 6.15326, 20.32503, 26.81981, 28.21651, 26.99163, 23.82162, 19.25065, 14.40972, 11.26531, 5.87168, 1.86194, -3.54449, -7.27148,
+                        -12.08254, -15.23975, -21.16049, -25.39325, -27.37251, -29.626, -27.28292, -24.37859, -18.66808, -12.41339, -7.29397, -3.29704, 2.10086, 5.82358, 9.5463, 14.9442, 20.03374, 22.87407, 27.37678, 32.14091, 36.05252, 37.72343, 38.51196, 36.47296, 33.34135, 30.75818, 26.78684,
+                        23.92091, 19.94531, 17.09219, 13.68209, 9.4536, 4.38111, -1.26541, -10.33482, -11.4957, -15.47984, -18.05021, -21.45177, -27.08123, -37.175, -39.68137, -37.06833, -34.19387, -30.47969, -26.21707, -21.95018, -18.236, -14.53888, -9.45786, -5.24217, 5.52803, 9.77358, 17.42924,
+                        20.81374, 24.49379, 28.15677, 31.53274, 34.62169, 37.14513, 38.25908, 37.5997, 33.89405, 30.46689, 27.60097, 23.07692, 19.64549, 15.96117, 8.02703, 2.40611, -3.82298, -9.51216, -15.16295, -19.99108, -27.587, -32.10251, -36.01838, -39.38155, -34.19387, -29.91845, -26.76551,
+                        -23.35541, -19.94104, -16.79237, -12.27686, -7.76135, -3.25864, 3.54023, 8.63831, 14.03621, 19.42557, 24.23237, 30.9715, 34.90017, 39.37729, 43.56738, 47.1749, 47.10237, 44.77635, 41.91042, 38.19624, 28.87393, 24.88127, 19.22621, 12.48281, 5.74368, -6.36349, -10.0734,
+                        -16.28543, -25.35911, -31.26279, -37.98486, -43.27609, -46.04389, -47.96769, -47.92076, -46.47286, -43.89822, -40.49666, -37.37358, -33.95495, -26.87333, -21.23961, -15.89718, -11.12025, -3.82841, 4.11, 10.35189, 16.55965, 25.58213, 30.07205, 34.56195, 40.97994, 44.32177,
+                        48.21631, 45.92016, 43.32845, 40.49239, 36.79954, 34.2249, 30.26637, 24.03301, 19.79172, 11.66442, 6.30492, -4.41835, -14.84607, -21.05809, -30.62049, -37.0598, -42.08535, -45.42719, -47.65507, -45.0335, -41.31932, -36.22124, -30.81907, -25.15549, -14.73203, -8.83263,
+                        -1.81074, 2.97899, 11.17028, 16.82533, 23.86855, 30.03791, 35.63324, 41.48998, 46.507, 53.20346, 55.07607, 52.48436, 47.39908, 44.26747, 37.21145, 31.28218, 27.91475, 19.5047, 9.92951, -0.74683, -7.24588, -18.50479, -23.56874, -32.54002, -41.7642, -48.4692, -53.49048,
+                        -57.94626, -59.61718, -55.90726, -51.62331, -46.81224, -40.03471, -33.83122, -29.60273, -22.61071, -15.05319, 2.1094, 18.23057, 24.69121, 33.07993, 39.51071, 46.48993, 51.7897, 55.97979, 58.47763, 53.62817, 49.90546, 40.60022, 31.84769, 22.57231, 9.67662, -0.43421, -12.854,
+                        -18.19643, -22.96483, -28.85144, -32.49309, -35.54364, -39.18103, -44.50213, -52.59956, -59.01328, -67.93336]
+
+    DisplacementStep = generate_increasing_cyclic_loading(num_cycles=6, initial_displacement=7, max_displacement=64, num_points=50, repetition_cycles=2)
 
     return tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, DisplacementStep
 
@@ -204,7 +221,7 @@ def Thomsen_and_Wallace_RW2():
                         0]  # Displacement steps For Thomsen_and_Wallace_RW2
 
     # DisplacementStep = generate_cyclic_load(duration=10, sampling_rate=200, max_displacement=86)
-    # DisplacementStep = generate_increasing_cyclic_loading(num_cycles=10, initial_displacement=5, max_displacement=86, num_points=50, repetition_cycles=2)
+    DisplacementStep = generate_increasing_cyclic_loading(num_cycles=10, initial_displacement=5, max_displacement=86, num_points=50, repetition_cycles=2)
 
     return tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, DisplacementStep
 
@@ -247,7 +264,7 @@ def Tran_and_Wallace_A15P10S78():
     # print('rouXb = ', rouXb)
     # print('rouXw = ', rouXw)
 
-    loadcoef = 0.064 / 0.85
+    loadCoeff = 0.064 / 0.85
 
     DisplacementStep = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, -1, -2, -3,
                         -4, -5, -6, -7, -8, -9, -10, -11, -12, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15,
@@ -270,7 +287,7 @@ def Tran_and_Wallace_A15P10S78():
 
     DisplacementStep = generate_increasing_cyclic_loading(num_cycles=5, initial_displacement=10, max_displacement=54, num_points=50, repetition_cycles=2)
 
-    return tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, DisplacementStep
+    return tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, DisplacementStep
 
 
 def Greifenhagen_M3():
@@ -281,7 +298,7 @@ def Greifenhagen_M3():
     tw = 80 * mm  # Wall thickness
     hw = 0.610 * m  # Wall height
     lw = 0.900 * m  # Wall length
-    lbe = 20 * mm  # Boundary element length
+    lbe = 15 * mm  # Boundary element length
     lweb = lw - (2 * lbe)
 
     # Material proprieties
@@ -291,8 +308,8 @@ def Greifenhagen_M3():
 
     # ---- Steel in Y direction (BE + Web) -------------------------------------------
     YbeNum = 1  # BE long reinforcement diameter (mm)
-    YbeDiam = 3  # BE long reinforcement diameter (mm)
-    YwebNum = 8  # Web long reinforcement diameter (mm)
+    YbeDiam = 6  # BE long reinforcement diameter (mm)
+    YwebNum = 6 # Web long reinforcement diameter (mm)
     YwebDiam = 6  # Web long reinforcement diameter (mm)
     rouYb = (RebarArea(YbeDiam) * YbeNum) / (lbe * tw)  # Y boundary
     rouYw = (RebarArea(YwebDiam) * YwebNum) / (lweb * tw)  # Y web
@@ -306,7 +323,7 @@ def Greifenhagen_M3():
                         2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
                         10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0]  # Displacement steps For Greifenhagen_M3
 
-    DisplacementStep = generate_increasing_cyclic_loading(num_cycles=8, initial_displacement=0.5, max_displacement=12, num_points=100, repetition_cycles=2)
+    DisplacementStep = generate_increasing_cyclic_loading(num_cycles=10, initial_displacement=1, max_displacement=13, num_points=50, repetition_cycles=2)
 
     return tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, DisplacementStep
 
@@ -397,21 +414,24 @@ validation_model = Thomsen_and_Wallace_RW2()
 # validation_model = Lu_SW11()
 # validation_model = Test()
 
-tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, DisplacementStep = validation_model
+tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, DisplacementStep = validation_model
+
+# tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff = 389.5523, 1701.843, 2376.5803, 299.7261, 26.7654, 325.0457, 581.9406, 0.0223, 0.0269, 0.0309
+# tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, DisplacementStep = validation_model
 
 max_displacement = max(DisplacementStep)
 DispIncr = max_displacement / 1000
 
 #  ---------------- RUN CYCLIC ANALYSIS ---------------------------------------------------------------
-rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef)
+rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff)
 rcmodel.run_gravity(printProgression=False)
-[x, y] = rcmodel.run_cyclic(DisplacementStep, plotResults=False, printProgression=True, recordData=False)
+[x, y] = rcmodel.run_cyclic(DisplacementStep, plotResults=True, printProgression=True, recordData=False)
 rcmodel.reset_analysis()
 plotting(x, y, 'Displacement (mm)', 'Base Shear (kN)', f'{name}', save_fig=False, plotValidation=True)
 
 # ---------------- RUN PUSHOVER ANALYSIS ---------------------------------------------------------------
-# rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef)
+# rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff)
 # rcmodel.run_gravity(printProgression=False)
-# [x, y] = rcmodel.run_pushover(MaxDisp=max_displacement, DispIncr=DispIncr, plotResults=False, printProgression=True, recordData=False)
+# [x, y] = rcmodel.run_pushover(MaxDisp=max_displacement, dispIncr=DispIncr, plotResults=False, printProgression=True, recordData=False)
 # rcmodel.reset_analysis()
-# plotting(x, y, 'x_label', 'y_label', f'Pushover Results', save_fig=False, plotValidation=False)
+# plotting(x, y, 'Displacement (mm)', 'Base Shear (kN)', f'{name}', save_fig=False, plotValidation=True)

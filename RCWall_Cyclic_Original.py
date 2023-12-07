@@ -278,7 +278,7 @@ def build_model(hw, lw, tw, lbe, fc, fy, bereinfNum, bereinfDiam, webreinfNum, w
 
     # axial force in N according to ACI318-19 (not considering the reinforced steel at this point for simplicity)
     global Aload
-    # Aload = 0.07 * abs(fc) * tw * lw * loadcoef
+    # Aload = 0.07 * abs(fc) * tw * lw * loadCoeff
     Aload = 0.85 * abs(fc) * tw * lw * loadcoef
     print('Axial load (kN) = ', Aload / 1000)
     # ------------------------------------------------------------------------

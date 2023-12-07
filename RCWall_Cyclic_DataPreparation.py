@@ -24,7 +24,7 @@ def save_data_to_file(filename, data):
         writer.writerows(data)
 
 
-filename = "RCWall_Data/RCWall_generated_samples.csv"
+filename = "RCWall_Data/RCWall_generated_samples(3).csv"
 rows = open_csv_file(filename)
 data_points = split_rows(rows)
 # Extract and save the parameter values, displacement values, and y values to separate files

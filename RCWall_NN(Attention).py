@@ -3,7 +3,7 @@ import tensorflow as tf
 from keras.models import Model
 from keras.optimizers import Adam, SGD
 from keras.metrics import MeanSquaredError, MeanAbsoluteError, MeanSquaredLogarithmicError, RootMeanSquaredError
-from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D, Softmax, Dropout, Activation, CuDNNLSTM, MultiHeadAttention, MaxPooling1D, LayerNormalization, Add, TimeDistributed
+from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Dot, Conv1D, GlobalMaxPooling1D, Softmax, Dropout, Activation, CuDNNLSTM, MultiHeadAttention, MaxPooling1D, LayerNormalization, Add, TimeDistributed
 import keras.callbacks
 from keras.utils import pad_sequences
 from sklearn.model_selection import train_test_split
@@ -74,83 +74,35 @@ X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, 
 
 # ---------------------- NN Model Building -------------------------
 # Build the neural network model using functional API
-# Layer 1
-input_parameters = Input(shape=(parameters_length,), name='input_parameters')
-dense_layer = Dense(sequence_length)(input_parameters)  # Dense layer for influencing parameters 32, activation='relu' or sequence_length
-flat1 = Flatten()(dense_layer)
-rflat1 = Reshape((sequence_length, num_features))(flat1)
-print('input_parameters ', input_parameters.shape)
-print('dense_layer ', dense_layer.shape)
-print('flat1 ', flat1.shape)
-print('rflat1 ', rflat1.shape)
-# Layer 2
-input_displacement = Input(shape=(sequence_length, num_features), name='input_displacement')
-lstm_layer = LSTM(sequence_length, return_sequences=True)(input_displacement)  # Bidirectional LSTM layer
-flat2 = Flatten()(lstm_layer)
-print('input_displacement ', input_displacement.shape)
-print('lstm_layer ', lstm_layer.shape)
-print('flat2 ', flat2.shape)
-# Concatenate expanded input parameters and time series displacement
+# Define input layers
+input_displacement = Input(shape=(500, 1))
+input_parameters = Input(shape=(9,))
 
-merged_inputs = concatenate([rflat1, lstm_layer])
-print('merged_inputs ', merged_inputs.shape)
-# Reshape to (timesteps, features)
-# reshaped_input = Reshape((sequence_length + parameters_length, num_features))(merged_inputs)
+# Encode input data and parameters
+encoded_displacement = LSTM(64, return_sequences=True)(input_displacement)
+encoded_parameters = LSTM(16)(input_parameters)
 
-# LSTM layers to capture temporal dependencies
-# lstm_1 = LSTM(32, return_sequences=True)(reshaped_input)
-# lstm_1_dropout = Dropout(0.2)(lstm_1)
-# lstm_2 = LSTM(sequence_length, return_sequences=True)(lstm_1_dropout)
-# lstm_2_dropout = Dropout(0.2)(lstm_2)
-# flat = Flatten()(lstm_2_dropout)
-# dense_layer = Dense(sequence_length)(flat)
+# Generate query vectors in LSTM units
+query_vectors = TimeDistributed(Dense(16))(encoded_displacement)
 
-# Reshape to (timesteps, features)
-# reshaped_input = Reshape((sequence_length + 32, num_features))(concatenated_input)
+# Calculate attention scores
+attention_scores = Dot(axes=1)([query_vectors, encoded_parameters])
+attention_scores = Activation('softmax')(attention_scores)
 
-# LSTM layer to capture temporal patterns
-# lstm_encoder = CuDNNLSTM(32, return_sequences=True, stateful=False)(reshaped_input)
-# lstm_decoder = CuDNNLSTM(sequence_length, return_sequences=True)(lstm_encoder)
-# flat = Flatten()(lstm_decoder)
+# Generate context vector
+context_vector = Dot(axes=1)([attention_scores, encoded_displacement])
 
-# 1D Convolutional Layer for displacement input
-# conv_layer = Conv1D(sequence_length, kernel_size=3, activation='relu')(displacement_input)
-# pooled_layer = GlobalMaxPooling1D()(conv_layer)
-# flat2 = Dense(sequence_length, activation='relu')(Flatten()(pooled_layer))
+# Combine context vector with LSTM hidden state
+merged_inputs = concatenate([context_vector, encoded_displacement])
 
-# Recurrent Layer (LSTM)
-# lstm_layer = LSTM(sequence_length, return_sequences=True)(displacement_input)
-# flat3 = Dense(sequence_length, activation='relu')(Flatten()(lstm_layer))
-
-# Self-Attention Transformer Layer
-# First
-# normalized_displacement = LayerNormalization(epsilon=1e-6)(displacement_input)
-# self_attention1 = MultiHeadAttention(num_heads=4, key_dim=sequence_length // 8)(normalized_displacement, normalized_displacement)
-# residual_connection1 = Add()([self_attention1, normalized_displacement])
-# Second
-# normalized_residual1 = LayerNormalization(epsilon=1e-6)(residual_connection1)
-# self_attention2 = MultiHeadAttention(num_heads=4, key_dim=sequence_length // 8)(normalized_residual1, normalized_residual1)
-# residual_connection2 = Add()([self_attention2, normalized_residual1])
-# flat2 = Flatten()(residual_connection2)
-
-# Feedforward block
-# feedforward = LayerNormalization(epsilon=1e-6)(self_attention)
-# feedforward = Conv1D(64, kernel_size=4, activation='relu')(feedforward)
-# feedforward = Conv1D(32, kernel_size=2)(feedforward)
-# flat2 = Flatten()(feedforward)
-
-# Merge the 2 input layers with concatenate LSTM and Dense layers
-# merged = concatenate([dense_layer, flat2])
-# reshaped = Reshape((sequence_length + 32, num_features))(merged)
-# LSTM Autoencoder Model
-lstm_encoder = CuDNNLSTM(32, return_sequences=True, stateful=False)(merged_inputs)
-lstm_decoder = CuDNNLSTM(sequence_length, return_sequences=True)(lstm_encoder)
-flat2 = Flatten()(lstm_decoder)
+# LSTM layers with context information
+lstm_1 = LSTM(64, return_sequences=True)(merged_inputs)
+lstm_2 = LSTM(32)(lstm_1)
 
 # ---------------------- Output layer --------------------------------------------
-output_shear = Dense(sequence_length, name='output_shear')(flat2)  # Shear
-output_displacement = Dense(sequence_length, name='output_displacement')(flat2)  # Displacement
-print('output_shear ', output_shear.shape)
+# Output branches
+output_displacement = TimeDistributed(Dense(1, activation='linear'))(lstm_2)
+output_shear = TimeDistributed(Dense(1, activation='linear'))(lstm_2)
 
 # ---------------------- Build the model ------------------------------------------
 model = Model(inputs=[input_parameters, input_displacement], outputs=[output_shear, output_displacement])
