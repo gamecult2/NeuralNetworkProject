@@ -28,23 +28,23 @@ num_timeseries = 500
 InputParameters = np.genfromtxt("RCWall_Data/InputParameters_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
 InputDisplacement = np.genfromtxt("RCWall_data/InputDisplacement_values.csv", delimiter=',', max_rows=max_rows, usecols=range(num_timeseries)).astype(np.float32)
 # Output files (Hysteresis Curve)
-OutputCyclicDisplacement = np.genfromtxt("RCWall_data/OutputCyclicDisplacement_values.csv", delimiter=',', max_rows=max_rows, usecols=range(num_timeseries)).astype(np.float32)
-OutputCyclicShear = np.genfromtxt("RCWall_data/OutputCyclicShear_values.csv", delimiter=',', max_rows=max_rows, usecols=range(num_timeseries)).astype(np.float32)
+OutputCyclicDisplacement = np.genfromtxt("RCWall_data/Smoothed/SmoothedOutputCyclicDisplacement_values.csv", delimiter=',', max_rows=max_rows, usecols=range(num_timeseries)).astype(np.float32)
+OutputCyclicShear = np.genfromtxt("RCWall_data/Smoothed/SmoothedOutputCyclicShear_values.csv", delimiter=',', max_rows=max_rows, usecols=range(num_timeseries)).astype(np.float32)
 # Output files (Pushover Curve)
 # OutputPushoverDisplacement = np.genfromtxt("RCWall_data/OutputPushoverDisplacement_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
 # OutputPushoverShear = np.genfromtxt("RCWall_data/OutputPushoverShear_values.csv", delimiter=',', max_rows=max_rows).astype(np.float32)
 
 # ---------------------- Data Normalization  ----------------------
-# Input Normalization
+# Input Normalization (Structural Parameters + Cyclic Loading)
 param_scaler = MinMaxScaler()
 Normalized_InputParameters = param_scaler.fit_transform(InputParameters)
 displacement_scaler = StandardScaler()
 Normalized_InputDisplacement = displacement_scaler.fit_transform(InputDisplacement.T).T
-# Output Normalization
-output_displacement_scaler = StandardScaler()
-Normalized_OutputCyclicDisplacement = output_displacement_scaler.fit_transform(OutputCyclicDisplacement.T).T
-output_shear_scaler = StandardScaler()
-Normalized_OutputCyclicShear = output_shear_scaler.fit_transform(OutputCyclicShear.T).T
+# Output Normalization (Hysteresis Curve)
+output_CyclicDisplacement_scaler = StandardScaler()
+Normalized_OutputCyclicDisplacement = output_CyclicDisplacement_scaler.fit_transform(OutputCyclicDisplacement.T).T
+output_CyclicShear_scaler = StandardScaler()
+Normalized_OutputCyclicShear = output_CyclicShear_scaler.fit_transform(OutputCyclicShear.T).T
 
 # ---------------------- Save Normalized Data --------------------
 # Save normalized Input data to CSV files
@@ -70,7 +70,7 @@ print('----------------------------------------')
 # ---------------------- Split Data -------------------------------
 # Split data into training, validation, and testing sets (X: Inputs & Y: Outputs)
 X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, Y_displacement_train, Y_displacement_test, Y_shear_train, Y_shear_test = train_test_split(
-    Normalized_InputParameters, Normalized_InputDisplacement, Normalized_OutputCyclicDisplacement, Normalized_OutputCyclicShear, test_size=0.2, random_state=42)
+    Normalized_InputParameters, Normalized_InputDisplacement, Normalized_OutputCyclicDisplacement, Normalized_OutputCyclicShear, test_size=0.15, random_state=20)
 
 # ---------------------- NN Model Building -------------------------
 # Build the neural network model using functional API
@@ -78,89 +78,43 @@ X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, 
 input_parameters = Input(shape=(parameters_length,), name='input_parameters')
 dense_layer = Dense(sequence_length)(input_parameters)  # Dense layer for influencing parameters 32, activation='relu' or sequence_length
 flat1 = Flatten()(dense_layer)
-rflat1 = Reshape((sequence_length, num_features))(flat1)
-print('input_parameters ', input_parameters.shape)
-print('dense_layer ', dense_layer.shape)
-print('flat1 ', flat1.shape)
-print('rflat1 ', rflat1.shape)
+
 # Layer 2
 input_displacement = Input(shape=(sequence_length, num_features), name='input_displacement')
-lstm_layer = LSTM(sequence_length, return_sequences=True)(input_displacement)  # Bidirectional LSTM layer
-flat2 = Flatten()(lstm_layer)
-print('input_displacement ', input_displacement.shape)
-print('lstm_layer ', lstm_layer.shape)
-print('flat2 ', flat2.shape)
-# Concatenate expanded input parameters and time series displacement
-
-merged_inputs = concatenate([rflat1, lstm_layer])
-print('merged_inputs ', merged_inputs.shape)
-# Reshape to (timesteps, features)
-# reshaped_input = Reshape((sequence_length + parameters_length, num_features))(merged_inputs)
-
-# LSTM layers to capture temporal dependencies
-# lstm_1 = LSTM(32, return_sequences=True)(reshaped_input)
-# lstm_1_dropout = Dropout(0.2)(lstm_1)
-# lstm_2 = LSTM(sequence_length, return_sequences=True)(lstm_1_dropout)
-# lstm_2_dropout = Dropout(0.2)(lstm_2)
-# flat = Flatten()(lstm_2_dropout)
-# dense_layer = Dense(sequence_length)(flat)
-
-# Reshape to (timesteps, features)
-# reshaped_input = Reshape((sequence_length + 32, num_features))(concatenated_input)
-
-# LSTM layer to capture temporal patterns
-# lstm_encoder = CuDNNLSTM(32, return_sequences=True, stateful=False)(reshaped_input)
+# lstm_encoder = CuDNNLSTM(32, return_sequences=True)(input_displacement)
 # lstm_decoder = CuDNNLSTM(sequence_length, return_sequences=True)(lstm_encoder)
-# flat = Flatten()(lstm_decoder)
+# flat2 = Flatten()(lstm_decoder)
 
 # 1D Convolutional Layer for displacement input
-# conv_layer = Conv1D(sequence_length, kernel_size=3, activation='relu')(displacement_input)
-# pooled_layer = GlobalMaxPooling1D()(conv_layer)
-# flat2 = Dense(sequence_length, activation='relu')(Flatten()(pooled_layer))
+conv_layer = Conv1D(sequence_length, kernel_size=3, activation='relu')(input_displacement)
+pooled_layer = GlobalMaxPooling1D()(conv_layer)
+flat2 = Dense(sequence_length, activation='relu')(Flatten()(pooled_layer))
 
-# Recurrent Layer (LSTM)
-# lstm_layer = LSTM(sequence_length, return_sequences=True)(displacement_input)
-# flat3 = Dense(sequence_length, activation='relu')(Flatten()(lstm_layer))
+# Concatenate expanded input parameters and time series displacement
+merged_inputs = concatenate([flat1, flat2])
+merged_inputs = Reshape((merged_inputs.shape[1], num_features))(merged_inputs)
 
-# Self-Attention Transformer Layer
-# First
-# normalized_displacement = LayerNormalization(epsilon=1e-6)(displacement_input)
-# self_attention1 = MultiHeadAttention(num_heads=4, key_dim=sequence_length // 8)(normalized_displacement, normalized_displacement)
-# residual_connection1 = Add()([self_attention1, normalized_displacement])
-# Second
-# normalized_residual1 = LayerNormalization(epsilon=1e-6)(residual_connection1)
-# self_attention2 = MultiHeadAttention(num_heads=4, key_dim=sequence_length // 8)(normalized_residual1, normalized_residual1)
-# residual_connection2 = Add()([self_attention2, normalized_residual1])
-# flat2 = Flatten()(residual_connection2)
-
-# Feedforward block
-# feedforward = LayerNormalization(epsilon=1e-6)(self_attention)
-# feedforward = Conv1D(64, kernel_size=4, activation='relu')(feedforward)
-# feedforward = Conv1D(32, kernel_size=2)(feedforward)
-# flat2 = Flatten()(feedforward)
-
-# Merge the 2 input layers with concatenate LSTM and Dense layers
-# merged = concatenate([dense_layer, flat2])
-# reshaped = Reshape((sequence_length + 32, num_features))(merged)
-# LSTM Autoencoder Model
-lstm_encoder = CuDNNLSTM(32, return_sequences=True, stateful=False)(merged_inputs)
+lstm_encoder = CuDNNLSTM(32, return_sequences=True)(merged_inputs)
 lstm_decoder = CuDNNLSTM(sequence_length, return_sequences=True)(lstm_encoder)
-flat2 = Flatten()(lstm_decoder)
+dense = Flatten()(lstm_decoder)
 
+
+dense1 = Dense(128, name='dense1')(dense)  # Shear
 # ---------------------- Output layer --------------------------------------------
-output_shear = Dense(sequence_length, name='output_shear')(flat2)  # Shear
-output_displacement = Dense(sequence_length, name='output_displacement')(flat2)  # Displacement
+
+output_shear = Dense(sequence_length, name='output_shear')(dense1)  # Shear
+# output_displacement = Dense(sequence_length, name='output_displacement')(flat2)  # Displacement
 print('output_shear ', output_shear.shape)
 
 # ---------------------- Build the model ------------------------------------------
-model = Model(inputs=[input_parameters, input_displacement], outputs=[output_shear, output_displacement])
+model = Model(inputs=[input_parameters, input_displacement], outputs=[output_shear])
 
 # ---------------------- Compile the model -----------------------------------------
 # Define Adam and SGD optimizers
 adam_optimizer = Adam(learning_rate=0.001)
 model.compile(optimizer=adam_optimizer,
               loss='mse',
-              metrics=['mse', 'accuracy']) #
+              metrics=['mse'])
 
 # ---------------------- Print Model summary ---------------------------------------------
 model.summary()
@@ -168,7 +122,7 @@ model.summary()
 # ---------------------- Define the checkpoint callback ----------------------------
 early_stopping = keras.callbacks.EarlyStopping(
     monitor="val_loss",  # Loss to monitor for stopping
-    patience=10,  # stop training after 10 non-improved training
+    patience=20,  # stop training after 10 non-improved training
     mode="auto",
     baseline=None,
     restore_best_weights=True,
@@ -177,10 +131,10 @@ early_stopping = keras.callbacks.EarlyStopping(
 # ---------------------- Train the model ---------------------------------------------
 history = model.fit(
     [X_parameter_train, X_displacement_train],  # Input layer (GMA + STRUCTURAL PARAMETERS)
-    [Y_shear_train, Y_displacement_train],  # Output layer (SHEAR)
-    epochs=100,
-    batch_size=16,
-    validation_split=0.2,
+    [Y_shear_train],  # Output layer (SHEAR)
+    epochs=500,
+    batch_size=32,
+    validation_split=0.15,
     callbacks=[early_stopping]  # checkpoint_callback or early_stopping
 )
 # ---------------------- Save the model ---------------------------------------------
@@ -220,7 +174,7 @@ plt.show()
 # plt.show()
 
 # Evaluate the model
-loss = model.evaluate([X_parameter_test, X_displacement_test], [Y_shear_test, Y_displacement_test])
+loss = model.evaluate([X_parameter_test, X_displacement_test], [Y_shear_test])
 print("Test loss:", loss)
 
 
@@ -232,7 +186,7 @@ real_shear = Y_shear_test[0:test_index]
 real_displacement = Y_displacement_test[0:test_index]  # Select a single example
 
 # Predict displacement for the new data
-predicted_shear, predicted_displacement = model.predict([new_input_parameters, new_input_displacement])
+predicted_shear = model.predict([new_input_parameters, new_input_displacement])
 
 
 # Plot the predicted displacement
@@ -251,34 +205,34 @@ for i in range(test_index):
     plt.show()
 
 # Plot the predicted displacement
-plt.figure(figsize=(10, 6))
-for i in range(test_index):
-    plt.plot(predicted_displacement[i], label=f'Predicted displacement - {i + 1}')
-    plt.plot(real_displacement[i], label=f'Real displacement - {i + 1}')
-    plt.plot(new_input_displacement[i], label=f'Input displacement  - {i + 1}')
-    plt.xlabel('Time Step', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.ylabel('Shear Load', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.title('Predicted Displacement Time Series', {'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
-    plt.yticks(fontname='Cambria', fontsize=14)
-    plt.xticks(fontname='Cambria', fontsize=14)
-    plt.tight_layout()
-    plt.legend()
-    plt.grid()
-    plt.show()
+# plt.figure(figsize=(10, 6))
+# for i in range(test_index):
+#     plt.plot(predicted_displacement[i], label=f'Predicted displacement - {i + 1}')
+#     plt.plot(real_displacement[i], label=f'Real displacement - {i + 1}')
+#     plt.plot(new_input_displacement[i], label=f'Input displacement  - {i + 1}')
+#     plt.xlabel('Time Step', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+#     plt.ylabel('Shear Load', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+#     plt.title('Predicted Displacement Time Series', {'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
+#     plt.yticks(fontname='Cambria', fontsize=14)
+#     plt.xticks(fontname='Cambria', fontsize=14)
+#     plt.tight_layout()
+#     plt.legend()
+#     plt.grid()
+#     plt.show()
 #
 # Plot the predicted displacement
-plt.figure(figsize=(10, 6))
-for i in range(test_index):
-    plt.plot(predicted_displacement[i], predicted_shear[i], label=f'Predicted Displacement - {i + 1}')
-    # plt.plot(new_input_displacement[i, :-1], predicted_shear[i, 1:], label=f'Input displacement - {i + 1}')
-    plt.plot(real_displacement[i], real_shear[i], label=f'True displacement - {i + 1}')
-    # plt.plot(new_input_displacement[i, :-1], real_shear[i, 1:], label=f'Input displacement - {i + 1}')
-    plt.xlabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.ylabel('Shear Load', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
-    plt.title('Predicted Displacement Time Series', fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
-    plt.yticks(fontname='Cambria', fontsize=14)
-    plt.xticks(fontname='Cambria', fontsize=14)
-    plt.tight_layout()
-    plt.legend()
-    plt.grid()
-    plt.show()
+# plt.figure(figsize=(10, 6))
+# for i in range(test_index):
+#     plt.plot(predicted_displacement[i], predicted_shear[i], label=f'Predicted Displacement - {i + 1}')
+#     # plt.plot(new_input_displacement[i, :-1], predicted_shear[i, 1:], label=f'Input displacement - {i + 1}')
+#     plt.plot(real_displacement[i], real_shear[i], label=f'True displacement - {i + 1}')
+#     # plt.plot(new_input_displacement[i, :-1], real_shear[i, 1:], label=f'Input displacement - {i + 1}')
+#     plt.xlabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+#     plt.ylabel('Shear Load', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+#     plt.title('Predicted Displacement Time Series', fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
+#     plt.yticks(fontname='Cambria', fontsize=14)
+#     plt.xticks(fontname='Cambria', fontsize=14)
+#     plt.tight_layout()
+#     plt.legend()
+#     plt.grid()
+#     plt.show()

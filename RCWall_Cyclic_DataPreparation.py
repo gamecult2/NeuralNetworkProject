@@ -1,4 +1,12 @@
 import csv
+import pandas as pd
+
+
+# Function to apply smoothing to each row using a moving average
+def smooth_row(row, alpha=0.35):
+    # Use a simple moving average with the specified window size
+    smoothed_row = row.ewm(alpha=alpha, adjust=False).mean()
+    return smoothed_row
 
 
 def open_csv_file(filename):
@@ -24,7 +32,7 @@ def save_data_to_file(filename, data):
         writer.writerows(data)
 
 
-filename = "RCWall_Data/RCWall_generated_samples(3).csv"
+filename = "RCWall_Data/RCWall_generated_samples(simple_loading).csv"
 rows = open_csv_file(filename)
 data_points = split_rows(rows)
 # Extract and save the parameter values, displacement values, and y values to separate files

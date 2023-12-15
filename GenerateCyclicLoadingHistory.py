@@ -39,13 +39,13 @@ def generate_increasing_cyclic_loading(num_cycles=10, initial_displacement=0, ma
     return time, displacement
 
 
-def generate_increasing_cyclic_loading_with_repetition(num_cycles, max_displacement, frequency=1, num_points=50, repetition_cycles=2):
+def generate_increasing_cyclic_loading_with_repetition(num_cycles, max_displacement, num_points=50, repetition_cycles=2):
     time = np.linspace(0, num_cycles * repetition_cycles, num_points * num_cycles * repetition_cycles)
     displacement = np.zeros_like(time)
 
     for i in range(num_cycles):
         amplitude = max_displacement * (i + 1) / num_cycles
-        displacement[i * num_points * repetition_cycles: (i + 1) * num_points * repetition_cycles] = amplitude * np.sin(2.0 * np.pi * frequency * time[i * num_points * repetition_cycles: (i + 1) * num_points * repetition_cycles])
+        displacement[i * num_points * repetition_cycles: (i + 1) * num_points * repetition_cycles] = amplitude * np.sin(2.0 * np.pi * time[i * num_points * repetition_cycles: (i + 1) * num_points * repetition_cycles])
 
     return time, displacement
 
@@ -77,11 +77,11 @@ def generate_increasing_cyclic_loading_with_exponential_growth(num_cycles, initi
     return time, displacement
 
 # Example usage
-num_cycles = 10
+num_cycles = 6
 initial_displacement = 20
-max_displacement = 50
-repetition_cycles = 2
-time1, displacement1 = generate_increasing_cyclic_loading_1000(num_cycles, initial_displacement, max_displacement, repetition_cycles)
+max_displacement = 100
+repetition_cycles = 1
+time1, displacement1 = generate_increasing_cyclic_loading_with_repetition(num_cycles, max_displacement, num_points=50, repetition_cycles=2)
 
 # time1, displacement1 = generate_increasing_cyclic_loading_with_repetition(num_cycles, max_displacement, frequency=1, num_points=50, repetition_cycles=repetition_cycles)
 # time2, displacement2 = generate_increasing_cyclic_loading_with_final_amplitude(num_cycles, initial_displacement, max_displacement+1, frequency=1, num_points=50, repetition_cycles=repetition_cycles)

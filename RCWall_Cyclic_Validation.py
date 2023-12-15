@@ -1,6 +1,7 @@
 from Units import *
 import matplotlib.pyplot as plt
 import RCWall_Cyclic_Model as rcmodel
+import RCWall_Cyclic_Model_simple as rcmodel
 # import RCWall_Cyclic_Model_SFI as rcmodel
 import openseespy.opensees as ops
 import numpy as np
@@ -425,13 +426,13 @@ DispIncr = max_displacement / 1000
 #  ---------------- RUN CYCLIC ANALYSIS ---------------------------------------------------------------
 rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff)
 rcmodel.run_gravity(printProgression=False)
-[x, y] = rcmodel.run_cyclic(DisplacementStep, plotResults=True, printProgression=True, recordData=False)
+[x, y] = rcmodel.run_cyclic(DisplacementStep, plotResults=False, printProgression=True, recordData=False)
 rcmodel.reset_analysis()
-plotting(x, y, 'Displacement (mm)', 'Base Shear (kN)', f'{name}', save_fig=False, plotValidation=True)
+plotting(x, y, 'Displacement (mm)', 'Base Shear (kN)', f'{name}', save_fig=False, plotValidation=False)
 
 # ---------------- RUN PUSHOVER ANALYSIS ---------------------------------------------------------------
-# rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff)
-# rcmodel.run_gravity(printProgression=False)
-# [x, y] = rcmodel.run_pushover(MaxDisp=max_displacement, dispIncr=DispIncr, plotResults=False, printProgression=True, recordData=False)
-# rcmodel.reset_analysis()
-# plotting(x, y, 'Displacement (mm)', 'Base Shear (kN)', f'{name}', save_fig=False, plotValidation=True)
+rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff)
+rcmodel.run_gravity(printProgression=False)
+[x, y] = rcmodel.run_pushover(MaxDisp=max_displacement, dispIncr=DispIncr, plotResults=False, printProgression=True, recordData=False)
+rcmodel.reset_analysis()
+plotting(x, y, 'Displacement (mm)', 'Base Shear (kN)', f'{name}', save_fig=False, plotValidation=False)

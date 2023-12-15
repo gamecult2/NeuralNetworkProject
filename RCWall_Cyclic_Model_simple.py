@@ -8,6 +8,36 @@ import openseespy.opensees as ops
 from Units import *
 
 
+def analysisLoopDisp(ok, step, Dincr, ControlNode, ControlNodeDof):
+    # The displacement control analysis loop.
+    if ok != 0:
+        print("Trying Newton with Initial Tangent ..")
+        ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr)
+        ops.test('NormDispIncr', 1e-8, 1000)
+        ops.algorithm('Newton', '-initial')
+        ok = ops.analyze(1)
+
+    if ok != 0:
+        print("Trying Broyden..")
+        ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr)
+        ops.test('NormDispIncr', 1e-8, 1000)
+        ops.algorithm('Broyden', 500)
+        ok = ops.analyze(1)
+
+    if ok != 0:
+        print("Trying RaphsonNewton ..")
+        ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr)
+        ops.test('NormDispIncr', 1e-8, 1000)
+        ops.algorithm('RaphsonNewton')
+        ok = ops.analyze(1)
+
+    ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr)
+    ops.test('NormDispIncr', 1e-8, 1000)
+    ops.algorithm('KrylovNewton')
+
+    return ok
+
+
 def reset_analysis():
     """
     Resets the analysis by setting time to 0,
@@ -283,8 +313,6 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
     ops.analysis('Static')
 
     # Define analysis parameters
-    maxUnconvergedSteps = 1
-    unconvergeSteps = 0
     Nsteps = len(DisplacementStep)
     finishedSteps = 0
     dispData = np.zeros(Nsteps + 1)
@@ -297,26 +325,18 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         Dincr = D1 - D0
         if printProgression:
             print(f'Step {j} -------->', f'Dincr = ', Dincr)
-        if unconvergeSteps > maxUnconvergedSteps:
-            break
         # ------------------------- first analyze command ---------------------------------------------
         ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, Dincr)
         ok = ops.analyze(1)
+        # ------------------------ If not converged -------------------------
         if ok != 0:
-            # ------------------------ If not converged, reduce the increment -------------------------
-            unconvergeSteps += 1
-            Dts = 50  # Analysis loop with 10x smaller increments
-            smallDincr = Dincr / Dts
-            for k in range(1, Dts):
-                if printProgression:
-                    print(f'Small Step {k} -------->', f'smallDincr = ', smallDincr)
-                ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, smallDincr)
-                ok = ops.analyze(1)
-            # ------------------------ If not converged --------------------------------------------
-            if ok != 0:
-                print("Problem running Cyclic analysis for the model : Ending analysis ")
-
-        D0 = D1  # move to next step
+            ok = analysisLoopDisp(ok, j, Dincr, ControlNode, ControlNodeDof)
+        if ok != 0:
+            print("Problem running Cyclic analysis for the model : Ending analysis ")
+        if ok == 0:
+            D0 = D1  # move to next step
+        else:
+            break
         finishedSteps = j + 1
         disp = ops.nodeDisp(ControlNode, ControlNodeDof)
         baseShear = -ops.getLoadFactor(2) / 1000  # Convert to from N to kN
@@ -359,8 +379,9 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
 def run_pushover(MaxDisp=75, dispIncr=1, plotResults=True, printProgression=True, recordData=False):
     if printProgression:
         tic = time.time()
-        print("RUNNING PUSHOVER ANALYSIS")
-
+        print('--------------------------------------------------------------------------------------------------')
+        print("\033[92m RUNNING PUSHOVER ANALYSIS --> Using the following parameters :", MaxDisp, " and ", dispIncr, "\033[0m")
+        print('--------------------------------------------------------------------------------------------------')
     if recordData:
         ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Reaction.out', '-node', 1, '-dof', ControlNodeDof, 'reaction')
         ops.recorder('Node', '-file', 'RunTimeNodalResults/Pushover_Displacement.out', '-node', ControlNode, '-dof', ControlNodeDof, 'disp')
@@ -381,31 +402,20 @@ def run_pushover(MaxDisp=75, dispIncr=1, plotResults=True, printProgression=True
     ops.algorithm('KrylovNewton')
     ops.analysis("Static")
 
-    maxUnconvergedSteps = 1
-    unconvergeSteps = 0
     finishedSteps = 0
     dataPush = np.zeros((NstepsPush + 1, 2))
     dispImpo = np.zeros(NstepsPush + 1)
 
     # Perform pushover analysis
     for j in range(NstepsPush):
-        if unconvergeSteps > maxUnconvergedSteps:
-            break
         ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, dispIncr)  # Target node is ControlNode and dof is 1
         ok = ops.analyze(1)
+        # ------------------------ If not converged -------------------------
         if ok != 0:
-            # ------------------------ If not converged, reduce the increment -------------------------
-            unconvergeSteps += 1
-            Dts = 50  # Try 50x smaller increments
-            smallDincr = dispIncr / Dts
-            for k in range(1, Dts):
-                if printProgression:
-                    print(f'Small Step {k} -------->', f'smallDincr = ', smallDincr)
-                ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, smallDincr)
-                ok = ops.analyze(1)
-            # ------------------------ If not converged --------------------------------------------
-            if ok != 0:
-                print("Problem running Pushover analysis for the model : Ending analysis ")
+            ok = analysisLoopDisp(ok, j, dispIncr, ControlNode, ControlNodeDof)
+        if ok != 0:
+            print("Problem running Pushover analysis for the model : Ending analysis ")
+            break
 
         dispImpo += dispIncr
         finishedSteps = j + 1

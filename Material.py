@@ -25,8 +25,8 @@ E = 200 * GPa  # Young's modulus in MPa
 fc = 41.75 * MPa  # Yield strength in MPa
 
 # Define the geometry of the steel rod in mm
-L = 240 * mm  # Length of the rod in mm
-D = 12 * mm  # Diameter of the rod in mm
+L = 10000 * mm  # Length of the rod in mm
+D = 360 * mm  # Diameter of the rod in mm
 A = np.pi * (D / 2) ** 2  # Cross-sectional area of the rod in mm^2
 
 # Calculate the second moment of area about the local z-axis
@@ -51,7 +51,7 @@ Ec0 = 8200.0 * (fc0 ** 0.375)  # Initial elastic modulus
 fcU = -fc0 * MPa  # Unconfined concrete strength
 ecU = -(fc0 ** 0.25) / 1150  # Unconfined concrete strain
 EcU = Ec0  # Unconfined elastic modulus
-ftU = 0.5 * (fc0 ** 0.5)  # Unconfined tensile strength
+ftU = 0.45 * (fc0 ** 0.5) * MPa  # Unconfined tensile strength
 etU = 2.0 * ftU / EcU  # Unconfined tensile strain
 xpU = 2.0
 xnU = 2.3
@@ -89,11 +89,11 @@ rt = 1.2  # shape parameter - tension
 xcrp = 10000  # cracking strain - tension
 
 # -------------------------- ConcreteCM model --------------------------
-# ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
-# print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
+ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 0)  # Web (unconfined concrete)
+print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 0)  # Web (unconfined concrete)
 # -------------------------- Concrete7 model --------------------------------------------
-ops.uniaxialMaterial('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
-print('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
+# ops.uniaxialMaterial('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
+# print('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
 
 # ---------------------------------------------------------------------------------------
 # Define "SteelMPF" uni-axial materials
@@ -127,7 +127,7 @@ ops.recorder('Element', '-file', 'element_output.out', '-ele', 1, 'section', str
 # Create a uniaxial material using a section tag
 section_tag = 1
 ops.section('Fiber', section_tag)
-ops.patch('circ', sY, 36, 12, *[0, 0], *[0, D], *[0, 360])
+ops.patch('circ', concWeb, 36, 12, *[0, 0], *[0, D], *[0, 360])
 
 # fib_sec_1 = [['section', 'Fiber', section_tag],
 #              ['patch', 'circ', concWeb, 36, 12, *[0, 0], *[0, D], *[0, 360]]  # noqa: E501
@@ -143,8 +143,8 @@ ops.beamIntegration('Lobatto', integrationTag, section_tag, 5)
 
 transformation_tag = 1
 ops.geomTransf('Linear', transformation_tag)  #  Corotational
-ops.element("nonlinearBeamColumn", 1, *[1, 2], 5, section_tag, transformation_tag)
-# ops.element('forceBeamColumn', 1, *[1, 2], transformation_tag, integrationTag)
+# ops.element("nonlinearBeamColumn", 1, *[1, 2], 5, section_tag, transformation_tag)
+ops.element('forceBeamColumn', 1, *[1, 2], transformation_tag, integrationTag)
 # ops.element('zeroLength', 1, *[1, 2], '-mat', sY, '-dir', 1, 2, 3)
 
 # Define load pattern (applying tension)
@@ -154,11 +154,11 @@ ops.load(2, *[0.0, 1.0, 0.0])
 ops.constraints('Transformation')  # Transformation 'Penalty', 1e20, 1e20
 ops.numberer('RCM')
 ops.system("BandGen")
-ops.test('NormDispIncr', 1e-8, 100, 0)
+ops.test('NormDispIncr', 1e-8, 200, 0)
 ops.algorithm('Newton')
 
 # Define analysis parameters
-DisplacementStep = generate_cyclic_load(duration=6, sampling_rate=50, max_displacement=10)
+DisplacementStep = generate_cyclic_load(duration=8, sampling_rate=20, max_displacement=120)
 
 maxUnconvergedSteps = 1
 unconvergeSteps = 0
@@ -180,6 +180,18 @@ for j in range(Nsteps):
     ops.integrator("DisplacementControl", 2, 2, Dincr)
     ops.analysis('Static')
     ok = ops.analyze(1)
+    if ok != 0:
+        # ------------------------ If not converged, reduce the increment -------------------------
+        unconvergeSteps += 1
+        Dts = 10  # Analysis loop with 10x smaller increments
+        smallDincr = Dincr / Dts
+        for k in range(1, Dts):
+            print(f'Small Step {k} -------->', f'smallDincr = ', smallDincr)
+            ops.integrator("DisplacementControl", 2, 2, smallDincr)
+            ok = ops.analyze(1)
+        # ------------------------ If not converged --------------------------------------------
+        if ok != 0:
+            print("Problem running Cyclic analysis for the model : Ending analysis ")
     D0 = D1  # move to next step
     finishedSteps = j + 1
     disp = ops.nodeDisp(2, 2)

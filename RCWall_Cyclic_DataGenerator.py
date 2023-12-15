@@ -4,6 +4,7 @@ import random
 import math
 import csv
 import RCWall_Cyclic_Model as rcmodel
+import RCWall_Cyclic_Model_simple as rcmodel
 
 random.seed(22)
 
@@ -33,6 +34,17 @@ def generate_increasing_cyclic_loading(num_cycles=10, initial_displacement=5, ma
     return displacement
 
 
+def generate_increasing_cyclic_loading_with_repetition(num_cycles, max_displacement, num_points=50, repetition_cycles=2):
+    time = np.linspace(0, num_cycles * repetition_cycles, num_points * num_cycles * repetition_cycles)
+    displacement = np.zeros_like(time)
+
+    for i in range(num_cycles):
+        amplitude = max_displacement * (i + 1) / num_cycles
+        displacement[i * num_points * repetition_cycles: (i + 1) * num_points * repetition_cycles] = amplitude * np.sin(2.0 * np.pi * time[i * num_points * repetition_cycles: (i + 1) * num_points * repetition_cycles])
+
+    return displacement
+
+
 def generate_increasing_cyclic_loading_with_exponential_growth(num_cycles, initial_displacement, max_displacement, frequency=1, num_points=50, repetition_cycles=2):
     time = np.linspace(0, num_cycles * repetition_cycles, num_points * num_cycles * repetition_cycles)
     displacement = np.zeros_like(time)
@@ -54,26 +66,26 @@ def generate_increasing_cyclic_loading_with_exponential_growth(num_cycles, initi
 # ***************************************************************************************************
 # Define the parameter ranges
 minParameters = [
-    150.00 * mm,  # (tw) Minimum thickness
-    1.00 * m,  # (hw) wall height
+    150.0 * mm,  # (tw) Minimum thickness
+    1.0 * m,  # (hw) wall height
     None,  # (lw) wall length (min t*6)
-    100.00 * mm,  # (lbe) BE length (as a percentage of wall length)
-    17.00 * MPa,  # (fc) Concrete Compressive Strength
-    275.00 * MPa,  # (fyb) Steel Yield Strength BE
-    380.00 * MPa,  # (fyw) Steel Yield Strength Web
+    100.0 * mm,  # (lbe) BE length (as a percentage of wall length)
+    20.0 * MPa,  # (fc) Concrete Compressive Strength
+    275.0 * MPa,  # (fyb) Steel Yield Strength BE
+    275.0 * MPa,  # (fyw) Steel Yield Strength Web
     0.0050,  # (rhoBE) BE long reinforcement ratio (Minimum = 0.01)
     0.0020,  # (rhoWEB) WEB long reinforcement ratio (Minimum = 0.0025)
     0.0100  # (loadCoeff) axial load ratio
 ]
 
 maxParameters = [
-    400.00 * mm,  # (tw) Maximum thickness
-    6.00 * m,  # (hw) wall height
-    4.00 * m,  # (lw) wall length (min t*6)
-    300.00 * mm,  # (lbe) BE length (as a percentage of wall length)
-    70.00 * MPa,  # (fc) Concrete Compressive Strength
-    690.00 * MPa,  # (fyb) Steel Yield Strength BE
-    690.00 * MPa,  # (fyw) Steel Yield Strength Web
+    400.0 * mm,  # (tw) Maximum thickness
+    6.0 * m,  # (hw) wall height
+    4.0 * m,  # (lw) wall length (min t*6)
+    300.0 * mm,  # (lbe) BE length (as a percentage of wall length)
+    70.0 * MPa,  # (fc) Concrete Compressive Strength
+    650.0 * MPa,  # (fyb) Steel Yield Strength BE
+    650.0 * MPa,  # (fyw) Steel Yield Strength Web
     0.0550,  # (rhoBE) BE long reinforcement ratio
     0.0300,  # (rhoWEB) WEB long reinforcement ratio
     0.1000  # (loadCoeff) axial load ratio
@@ -82,14 +94,14 @@ maxParameters = [
 # Define the parameter ranges
 minLoading = [
     6,  # num_cycles
-    1 * mm,  # initial_displacement
+    # 1 * mm,  # initial_displacement
     20 * mm,  # max_displacement
     1  # repetition_cycles
 ]
 
 maxLoading = [
-    10,  # num_cycles
-    20 * mm,  # initial_displacement
+    12,  # num_cycles
+    # 10 * mm,  # initial_displacement
     200 * mm,  # max_displacement
     3  # repetition_cycles
 ]
@@ -118,11 +130,10 @@ maxLoading = [
 # ***************************************************************************************************
 # Define the number of samples to be generated
 num_samples = 10000
-
-timeseries_length = 1000
+timeseries_length = 500
 
 # Open the CSV file for writing
-with open("RCWall_Data/RCWall_generated_samples.csv", 'a', newline='') as file:
+with open("RCWall_Data/RCWall_generated_samples(multiAnalysis).csv", 'a', newline='') as file:
     writer = csv.writer(file)
     converged = []
     nonconverged = []
@@ -146,12 +157,13 @@ with open("RCWall_Data/RCWall_generated_samples.csv", 'a', newline='') as file:
 
         # Cyclic load parameters
         num_cycles = int(random.uniform(minLoading[0], maxLoading[0]))
-        initial_displacement = int(random.uniform(minLoading[1], maxLoading[1]))
-        max_displacement = int(random.uniform(minLoading[2], maxLoading[2]))
-        repetition_cycles = int(random.uniform(minLoading[3], maxLoading[3]))
+        # initial_displacement = int(random.uniform(minLoading[1], maxLoading[1]))
+        max_displacement = int(random.uniform(minLoading[1], maxLoading[1]))
+        repetition_cycles = int(random.uniform(minLoading[2], maxLoading[2]))
         num_points = math.ceil(timeseries_length / (num_cycles * repetition_cycles))  # Ensure at least 1000 points in total.
 
-        DisplacementStep = list(generate_increasing_cyclic_loading(num_cycles, initial_displacement, max_displacement, num_points, repetition_cycles))
+        # DisplacementStep = list(generate_increasing_cyclic_loading(num_cycles, initial_displacement, max_displacement, num_points, repetition_cycles))
+        DisplacementStep = list(generate_increasing_cyclic_loading_with_repetition(num_cycles,  max_displacement, num_points, repetition_cycles))
         DisplacementStep = DisplacementStep[: timeseries_length]  # Limit displacement of Cyclic analysis to 1000 points
 
         # Pushover parameters
@@ -159,7 +171,7 @@ with open("RCWall_Data/RCWall_generated_samples.csv", 'a', newline='') as file:
 
         # Overall parameters
         parameter_values = [round(value, 4) for value in [tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff]]
-        cyclic_values = [round(value, 4) for value in [initial_displacement, max_displacement, repetition_cycles, num_cycles]]
+        cyclic_values = [round(value, 4) for value in [max_displacement, repetition_cycles, num_cycles, num_points]]
         pushover_values = [round(value, 4) for value in [max_displacement, DispIncr]]
         print("\033[92m USED PARAMETERS -> (Characteristic):", parameter_values, "-> (Cyclic Loading):", cyclic_values, "-> (Pushover Loading):", pushover_values, "\033[0m")
 
@@ -167,13 +179,13 @@ with open("RCWall_Data/RCWall_generated_samples.csv", 'a', newline='') as file:
         #           RUN ANALYSIS (CYCLIC + PUSHOVER)
         # ***************************************************************************************************
         # CYCLIC ANALYSIS
-        print("\033[92m Running Cyclic Analysis :", cyclic_values, "\033[0m")
+        print("\033[92m Running Cyclic Analysis :", cyclic_values, "\033[0m", '--> DisplacementStep :', len(DisplacementStep),)
         rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, printProgression=False)
         rcmodel.run_gravity(printProgression=False)
         [x1, y1] = rcmodel.run_cyclic(DisplacementStep, plotResults=False, printProgression=False, recordData=False)
         rcmodel.reset_analysis()
-
-        # RUN PUSHOVER ANALYSIS
+#
+        # # RUN PUSHOVER ANALYSIS
         print("\033[92m Running Pushover Analysis :", pushover_values, "\033[0m")
         rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, printProgression=False)
         rcmodel.run_gravity(printProgression=False)
@@ -183,13 +195,13 @@ with open("RCWall_Data/RCWall_generated_samples.csv", 'a', newline='') as file:
         # ***************************************************************************************************
         #           SAVE DATA (CYCLIC + PUSHOVER)
         # ***************************************************************************************************
-        # # if 980 <= len(x1) <= 1020:
+        # if 980 <= len(x1) <= 1020:
         # if 2980 <= len(x1) <= 3020 and 2980 <= len(x2) <= 3020:  # Check if the length of the response results is 1000 to write it to the file other results will be removed because of non-convergence
         if len(x1) == len(x2) == timeseries_length:
             converged.append(sample_index)
             # Save all samples in the same CSV file
             # ------------------------ Inputs (Structural Parameters + Cyclic Loading) ---------------------------------------------------------------------
-            writer.writerow(['InputParameters_values'] + parameter_values)  # The 9 Parameters used for the simulation
+            writer.writerow(['InputParameters_values'] + parameter_values)  # The 10 Parameters used for the simulation
             writer.writerow(['InputDisplacement_values'] + DisplacementStep)  # Cyclic Displacement imposed to the RC Shear Wall
             # ----------------------- Outputs (Hysteresis Curve - ShearBase Vs Lateral Displacement) -------------------------------------------------------
             writer.writerow(['OutputCyclicDisplacement_values'] + x1.astype(str).tolist())  # Displacement Response of the RC Shear Wall
