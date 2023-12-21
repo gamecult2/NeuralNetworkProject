@@ -3,13 +3,14 @@ import tensorflow as tf
 from keras.models import Model
 from keras.optimizers import Adam, SGD
 from keras.metrics import MeanSquaredError, MeanAbsoluteError, MeanSquaredLogarithmicError, RootMeanSquaredError
-from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D, Softmax, Dropout, Activation, CuDNNLSTM, MultiHeadAttention, MaxPooling1D, LayerNormalization, Add, TimeDistributed, RepeatVector, Lambda, Attention, Multiply
+from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D, Softmax, Dropout, Activation, CuDNNLSTM, MultiHeadAttention, MaxPooling1D, LayerNormalization, Add, TimeDistributed, RepeatVector, Lambda
 import keras.callbacks
 from keras.utils import pad_sequences
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import matplotlib.pyplot as plt
 import os
+
 
 # Allocate space for Bidirectional(LSTM)
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
@@ -39,6 +40,18 @@ OutputCyclicDisplacement = np.genfromtxt("RCWall_data/OutputCyclicDisplacement_v
 
 # ---------------------- Data Normalization  ----------------------
 # Input Normalization (Structural Parameters + Cyclic Loading)
+# param_scaler = MinMaxScaler(feature_range=(-1, 1))
+# Normalized_InputParameters = param_scaler.fit_transform(InputParameters)
+# displacement_scaler = MinMaxScaler(feature_range=(-1, 1))
+# Normalized_InputDisplacement = displacement_scaler.fit_transform(InputDisplacement)
+
+#  Output Normalization (Hysteresis Curve)
+# output_CyclicDisplacement_scaler = MinMaxScaler(feature_range=(-1, 1))
+# Normalized_OutputCyclicDisplacement = output_CyclicDisplacement_scaler.fit_transform(OutputCyclicDisplacement.T).T
+# output_CyclicShear_scaler = MinMaxScaler(feature_range=(-1, 1))
+# Normalized_OutputCyclicShear = output_CyclicShear_scaler.fit_transform(OutputCyclicShear.T).T
+
+# Input Normalization (Structural Parameters + Cyclic Loading)
 param_scaler = MinMaxScaler(feature_range=(-1, 1))
 Normalized_InputParameters = param_scaler.fit_transform(InputParameters)
 displacement_scaler = MinMaxScaler(feature_range=(-1, 1))
@@ -57,6 +70,10 @@ Normalized_OutputCyclicDisplacement = output_CyclicDisplacement_scaler.fit_trans
 # np.savetxt("RCWall_Data/Normalized/Normalized_OutputCyclicDisplacement.csv", Normalized_OutputCyclicDisplacement, delimiter=',')
 # np.savetxt("RCWall_Data/Normalized/Normalized_OutputCyclicShear.csv", Normalized_OutputCyclicShear, delimiter=',')
 
+# ---------------------- Reshape Data --------------------------
+# Reshape Data
+# Normalized_InputParameters = Normalized_InputParameters.reshape(Normalized_InputParameters.shape[0], Normalized_InputParameters.shape[1], num_features)
+# Normalized_InputDisplacement = Normalized_InputDisplacement.reshape(Normalized_InputDisplacement.shape[0], Normalized_InputDisplacement.shape[1], num_features)
 # Organize the Generate data
 num_samples, parameters_length = InputParameters.shape
 num_samples, sequence_length = InputDisplacement.shape
@@ -80,31 +97,30 @@ print('displacement_input', displacement_input.shape)
 distributed_parameters = RepeatVector(num_timeseries)(parameters_input)
 print('parameters_input2', distributed_parameters.shape)
 
-# Concatenate inputs
 concatenated_tensor = concatenate([displacement_input, distributed_parameters], axis=-1)
 print('concatenated_tensor', concatenated_tensor.shape)
 
-# CuDNNLSTM layer with return_sequences=True
-lstm1 = Bidirectional(LSTM(200, return_sequences=True, stateful=False))(concatenated_tensor)
-activation1 = Activation('relu')(lstm1)
-print('activation1', activation1.shape)
-
-# Attention mechanism
-attention = Attention(use_scale=True)([activation1, activation1])  # Add attention mechanism
-attended_representation = Multiply()([activation1, attention])  # Multiply attention weights with LSTM output
-
-# CuDNNLSTM layer with return_sequences=True
-lstm2_input = concatenate([activation1, attended_representation], axis=-1)  # Concatenate LSTM output with attended representation
-lstm2 = Bidirectional(LSTM(200, return_sequences=True, stateful=False))(lstm2_input)
-activation2 = Activation('relu')(lstm2)
-print('activation2', activation2.shape)
+# Apply 1D convolution with ReLU activation (5 layers)
+conv_1 = Conv1D(64, 3, activation='relu')(concatenated_tensor)
+print('conv_1', conv_1.shape)
+conv_2 = Conv1D(64, 3, activation='relu')(conv_1)
+print('conv_2', conv_2.shape)
+conv_3 = Conv1D(64, 3, activation='relu')(conv_2)
+print('conv_3', conv_3.shape)
+conv_4 = Conv1D(64, 3, activation='relu')(conv_3)
+print('conv_4', conv_4.shape)
+conv_5 = Conv1D(64, 3, activation='relu')(conv_4)
+print('conv_5', conv_5.shape)
 
 # Dense layer with 100 units
-dense1 = Dense(200)(activation2)
+dense1 = Dense(50)(conv_5)
 print('dense1', dense1.shape)
 
+# Dense layer with 100 units
+dense2 = Flatten()(Dense(50)(dense1))
+print('dense2', dense2.shape)
 # ---------------------- Output layer --------------------------------------------
-output_shear = Flatten()(Dense(1, name='output_shear')(dense1))
+output_shear = Dense(500, name='output_shear')(dense2)
 print('output_shear', output_shear.shape)
 
 # ---------------------- Build the model ------------------------------------------
@@ -124,7 +140,7 @@ model.summary()
 # ---------------------- Define the checkpoint callback ----------------------------
 early_stopping = keras.callbacks.EarlyStopping(
     monitor="val_loss",  # Loss to monitor for stopping
-    patience=100,  # stop training after 10 non-improved training
+    patience=50,  # stop training after 10 non-improved training
     mode="auto",
     baseline=None,
     restore_best_weights=True,
@@ -134,7 +150,7 @@ early_stopping = keras.callbacks.EarlyStopping(
 history = model.fit(
     [X_parameter_train, X_displacement_train],  # Input layer (GMA + STRUCTURAL PARAMETERS)
     [Y_shear_train],  # Output layer (SHEAR)
-    epochs=500,
+    epochs=400,
     batch_size=32,
     validation_split=0.15,
     callbacks=[early_stopping]  # checkpoint_callback or early_stopping

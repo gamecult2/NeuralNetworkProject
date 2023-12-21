@@ -22,7 +22,7 @@ def generate_cyclic_load(duration=6, sampling_rate=50, max_displacement=3):
 # Define the material properties of the steel rod in MPa
 Fy = 434 * MPa  # Yield strength in MPa
 E = 200 * GPa  # Young's modulus in MPa
-fc = 41.75 * MPa  # Yield strength in MPa
+fc = 40 * MPa  # Yield strength in MPa 41.75
 
 # Define the geometry of the steel rod in mm
 L = 10000 * mm  # Length of the rod in mm
@@ -89,8 +89,8 @@ rt = 1.2  # shape parameter - tension
 xcrp = 10000  # cracking strain - tension
 
 # -------------------------- ConcreteCM model --------------------------
-ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 0)  # Web (unconfined concrete)
-print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 0)  # Web (unconfined concrete)
+ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
+print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
 # -------------------------- Concrete7 model --------------------------------------------
 # ops.uniaxialMaterial('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
 # print('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
@@ -154,11 +154,11 @@ ops.load(2, *[0.0, 1.0, 0.0])
 ops.constraints('Transformation')  # Transformation 'Penalty', 1e20, 1e20
 ops.numberer('RCM')
 ops.system("BandGen")
-ops.test('NormDispIncr', 1e-8, 200, 0)
+ops.test('NormDispIncr', 1e-10, 1000, 0)
 ops.algorithm('Newton')
 
 # Define analysis parameters
-DisplacementStep = generate_cyclic_load(duration=8, sampling_rate=20, max_displacement=120)
+DisplacementStep = generate_cyclic_load(duration=8, sampling_rate=20, max_displacement=100)
 
 maxUnconvergedSteps = 1
 unconvergeSteps = 0
@@ -183,12 +183,12 @@ for j in range(Nsteps):
     if ok != 0:
         # ------------------------ If not converged, reduce the increment -------------------------
         unconvergeSteps += 1
-        Dts = 10  # Analysis loop with 10x smaller increments
-        smallDincr = Dincr / Dts
-        for k in range(1, Dts):
-            print(f'Small Step {k} -------->', f'smallDincr = ', smallDincr)
-            ops.integrator("DisplacementControl", 2, 2, smallDincr)
-            ok = ops.analyze(1)
+        # Dts = 10  # Analysis loop with 10x smaller increments
+        # smallDincr = Dincr / Dts
+        # for k in range(1, Dts):
+        #     print(f'Small Step {k} -------->', f'smallDincr = ', smallDincr)
+        #     ops.integrator("DisplacementControl", 2, 2, smallDincr)
+        #     ok = ops.analyze(1)
         # ------------------------ If not converged --------------------------------------------
         if ok != 0:
             print("Problem running Cyclic analysis for the model : Ending analysis ")

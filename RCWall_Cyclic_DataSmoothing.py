@@ -4,7 +4,7 @@ import numpy as np
 
 
 # Function to apply smoothing to each row using a moving average
-def smooth_row(row, alpha=0.6, window_size=3):
+def smooth_row(row, alpha=0.8, window_size=3):
     # Exponential smoothing
     smoothed_row_exp = row.ewm(alpha=alpha, adjust=False).mean()
 
@@ -13,7 +13,6 @@ def smooth_row(row, alpha=0.6, window_size=3):
 
     return smoothed_row_exp
 
-'''
 
 # ----------------------- Read Data --------------------------------------------------------------------------
 #  Outputs (Hysteresis Curve - ShearBase Vs Lateral Displacement)
@@ -39,7 +38,7 @@ smoothed_OutputCyclicShear_values.to_csv('RCWall_data/Smoothed/SmoothedOutputCyc
 smoothed_OutputPushoverDisplacement_values.to_csv('RCWall_data/Smoothed/SmoothedOutputPushoverDisplacement_values.csv', index=False)
 smoothed_smoothed_OutputPushoverShear_values.to_csv('RCWall_data/Smoothed/SmoothedOutputPushoverShear_values.csv', index=False)
 
-'''
+
 # Read data from CSV files
 # output_cyclic_shear_values = pd.read_csv('RCWall_data/OutputCyclicShear_values.csv')
 # smoothed_output_cyclic_shear_values = pd.read_csv('RCWall_data/Smoothed/SmoothedOutputCyclicShear_values.csv')
@@ -66,7 +65,7 @@ y2 = np.genfromtxt('RCWall_data/Smoothed/SmoothedOutputCyclicShear_values.csv', 
 
 
 # Plot a loop of the first 10 rows from OutputCyclicShear_values.csv and SmoothedOutputCyclicShear_values.csv
-for index in range(1, 3):
+for index in range(10, 20):
     fig = plt.subplots(figsize=(10, 6))
     # plt.plot(column1, column2, label=f'Original Row {index + 1}', linestyle='--')
     plt.plot(x1[index], y1[index], label=f'Original Row {index + 1}', linestyle='--')
