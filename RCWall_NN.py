@@ -1,70 +1,28 @@
-import numpy as np
-import tensorflow as tf
 from keras.models import Model
-from keras.optimizers import Adam
-from keras.metrics import MeanSquaredError, MeanAbsoluteError, MeanSquaredLogarithmicError, RootMeanSquaredError
-from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D, Softmax, Dropout, Activation, CuDNNLSTM, MultiHeadAttention
+from keras.optimizers import Adam, SGD
+from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D, Softmax, Dropout, Activation, CuDNNLSTM, MultiHeadAttention, MaxPooling1D, LayerNormalization, Add, TimeDistributed, RepeatVector, Lambda, Attention, Multiply
 import keras.callbacks
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import matplotlib.pyplot as plt
-import os
+from sklearn.model_selection import train_test_split
+from RCWall_DataProcessing import *
 
-# Allocate space for Bidirectional(LSTM)
-os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-
-# Activate the GPU
-tf.config.list_physical_devices(device_type=None)
-physical_devices = tf.config.list_physical_devices('GPU')
-print("Num GPUs:", len(physical_devices))
 
 # Define the number of sample to be used
-max_rows = 9000
-
-# ---------------------- Read Data  -------------------------------
-# Input files
-InputParameters = np.genfromtxt("RCWall_Data/InputParameters_values.csv", delimiter=',', max_rows=max_rows)
-InputDisplacement = np.genfromtxt("RCWall_data/InputDisplacement_values.csv", delimiter=',', max_rows=max_rows)
-# Output files
-OutputDisplacement = np.genfromtxt("RCWall_data/OutputDisplacement_values.csv", delimiter=',', max_rows=max_rows)
-OutputShear = np.genfromtxt("RCWall_data/OutputShear_values.csv", delimiter=',', max_rows=max_rows)
-
-
-# ---------------------- Data Normalization  ----------------------
-# Input Normalization
-param_scaler = MinMaxScaler()
-Normalized_InputParameters = param_scaler.fit_transform(InputParameters)
-displacement_scaler = StandardScaler()
-Normalized_InputDisplacement = displacement_scaler.fit_transform(InputDisplacement.T).T
-# Output Normalization
-output_displacement_scaler = StandardScaler()
-Normalized_OutputDisplacement = output_displacement_scaler.fit_transform(OutputDisplacement.T).T
-output_shear_scaler = StandardScaler()
-Normalized_OutputShear = output_shear_scaler.fit_transform(OutputShear.T).T
-
-# ---------------------- Save Normalized Data --------------------
-# Save normalized data to CSV files
-np.savetxt("RCWall_Data/Normalized_InputParameters.csv", Normalized_InputParameters, delimiter=',')
-np.savetxt("RCWall_Data/Normalized_InputDisplacement.csv", Normalized_InputDisplacement, delimiter=',')
-np.savetxt("RCWall_Data/Normalized_OutputDisplacement.csv", Normalized_OutputDisplacement, delimiter=',')
-np.savetxt("RCWall_Data/Normalized_OutputShear.csv", Normalized_OutputShear, delimiter=',')
-# Organize the Generate data
-num_samples, parameters_length = InputParameters.shape
-num_samples, sequence_length = InputDisplacement.shape
-
-# ---------------------- Reshape Data --------------------------
+batch_size = 10  # 3404
 num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
-# Reshape Data
-InputDisplacement = InputDisplacement.reshape(InputDisplacement.shape[0], InputDisplacement.shape[1], num_features)
-print('----------------------------------------')
-print('InputParameters Shape = ', (InputParameters.shape))
-print('InputDisplacement Shape = ', (InputDisplacement.shape))
-print('----------------------------------------')
+sequence_length = 500
+parameters_length = 10
+num_features_input_displacement = 1
+num_features_input_parameters = 10
+
+returned_data, returned_scaler = read_data(batch_size, sequence_length, normalize_data=True, save_normalized_data=False, smoothed_data=True)
+InParams, InDisp, OutCycShear, OutCycDisp, OutPushShear, OutPushDisp = returned_data
+param_scaler, disp_scaler, cyc_shear_scaler, cyc_disp_scaler, push_shear_scaler, push_disp_scaler = returned_scaler
 
 # ---------------------- Split Data -------------------------------
 # Split data into training, validation, and testing sets (X: Inputs & Y: Outputs)
-X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, Y_displacement_train, Y_displacement_test, Y_shear_train, Y_shear_test = train_test_split(
-    Normalized_InputParameters, Normalized_InputDisplacement, Normalized_OutputDisplacement, Normalized_OutputShear, test_size=0.2, random_state=42)
+X_param_train, X_param_test, X_disp_train, X_disp_test, Y_shear_train, Y_shear_test, Y_disp_train, Y_disp_test, Y_shear2_train, Y_shear2_test, Y_disp2_train, Y_disp2_test = train_test_split(
+    InParams, InDisp, OutCycShear, OutCycDisp, OutPushShear, OutPushDisp, test_size=0.15, random_state=20)
 
 # ---------------------- NN Model Building -------------------------
 # Build the neural network model using functional API
@@ -197,6 +155,7 @@ plt.figure(figsize=(10, 6))
 for i in range(test_index):
     plt.plot(predicted_displacement[i], predicted_shear[i], label=f'Predicted Displacement - {i + 1}')
     # plt.plot(new_input_displacement[i, :-1], predicted_shear[i, 1:], label=f'Input displacement - {i + 1}')
+    plt.plot(new_input_displacement[i, :-1], predicted_shear[i, 1:], label=f'Input displacement - {i + 1}')
     plt.plot(real_displacement[i], real_shear[i], label=f'True displacement - {i + 1}')
     # plt.plot(new_input_displacement[i, :-1], real_shear[i, 1:], label=f'Input displacement - {i + 1}')
     plt.xlabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})

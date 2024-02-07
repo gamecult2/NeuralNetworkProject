@@ -1,83 +1,35 @@
-import numpy as np
-import tensorflow as tf
 from keras.models import Model
 from keras.optimizers import Adam, SGD
-from keras.metrics import MeanSquaredError, MeanAbsoluteError, MeanSquaredLogarithmicError, RootMeanSquaredError
 from keras.layers import LSTM, Dense, Input, Concatenate, Reshape, concatenate, Flatten, Bidirectional, Conv1D, GlobalMaxPooling1D, Softmax, Dropout, Activation, CuDNNLSTM, MultiHeadAttention, MaxPooling1D, LayerNormalization, Add, TimeDistributed, RepeatVector, Lambda, Attention, Multiply
 import keras.callbacks
-from keras.utils import pad_sequences
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import matplotlib.pyplot as plt
-import os
-
-# Allocate space for Bidirectional(LSTM)
-os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-
-# Activate the GPU
-tf.config.list_physical_devices(device_type=None)
-physical_devices = tf.config.list_physical_devices('GPU')
-print("Num GPUs:", len(physical_devices))
+from RCWall_DataProcessing import *
 
 # Define the number of sample to be used
-batch_size = 3000  # 3404
+batch_size = 10  # 3404
 num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
-num_timeseries = 500
+sequence_length = 500
+parameters_length = 10
 num_features_input_displacement = 1
 num_features_input_parameters = 10
 
-# ---------------------- Read Data  -------------------------------
-# Input files (Structural Parameters + Cyclic Loading)
-InputParameters = np.genfromtxt("RCWall_Data/InputParameters_values.csv", delimiter=',', max_rows=batch_size)
-InputDisplacement = np.genfromtxt("RCWall_data/InputDisplacement_values.csv", delimiter=',', max_rows=batch_size, usecols=range(num_timeseries))
-# Output files (Hysteresis Curve)
-OutputCyclicShear = np.genfromtxt("RCWall_data/OutputCyclicShear_values.csv", delimiter=',', max_rows=batch_size, usecols=range(num_timeseries))
-OutputCyclicDisplacement = np.genfromtxt("RCWall_data/OutputCyclicDisplacement_values.csv", delimiter=',', max_rows=batch_size, usecols=range(num_timeseries))
-# Output files (Pushover Curve)   Smoothed/Smoothed
-# OutputPushoverDisplacement = np.genfromtxt("RCWall_data/OutputPushoverDisplacement_values.csv", delimiter=',', max_rows=max_rows)
-# OutputPushoverShear = np.genfromtxt("RCWall_data/OutputPushoverShear_values.csv", delimiter=',', max_rows=max_rows)
-
-# ---------------------- Data Normalization  ----------------------
-# Input Normalization (Structural Parameters + Cyclic Loading)
-param_scaler = MinMaxScaler(feature_range=(-1, 1))
-Normalized_InputParameters = param_scaler.fit_transform(InputParameters)
-displacement_scaler = MinMaxScaler(feature_range=(-1, 1))
-Normalized_InputDisplacement = displacement_scaler.fit_transform(InputDisplacement)
-# Output Normalization (Hysteresis Curve)
-output_CyclicShear_scaler = MinMaxScaler(feature_range=(-1, 1))
-Normalized_OutputCyclicShear = output_CyclicShear_scaler.fit_transform(OutputCyclicShear)
-output_CyclicDisplacement_scaler = MinMaxScaler(feature_range=(-1, 1))
-Normalized_OutputCyclicDisplacement = output_CyclicDisplacement_scaler.fit_transform(OutputCyclicDisplacement)
-
-# ---------------------- Save Normalized Data --------------------
-# Save normalized Input data to CSV files
-# np.savetxt("RCWall_Data/Normalized/Normalized_InputParameters.csv", Normalized_InputParameters, delimiter=',')
-# np.savetxt("RCWall_Data/Normalized/Normalized_InputDisplacement.csv", Normalized_InputDisplacement, delimiter=',')
-# # Save normalized Output data to CSV files
-# np.savetxt("RCWall_Data/Normalized/Normalized_OutputCyclicDisplacement.csv", Normalized_OutputCyclicDisplacement, delimiter=',')
-# np.savetxt("RCWall_Data/Normalized/Normalized_OutputCyclicShear.csv", Normalized_OutputCyclicShear, delimiter=',')
-
-# Organize the Generate data
-num_samples, parameters_length = InputParameters.shape
-num_samples, sequence_length = InputDisplacement.shape
-print('----------------------------------------')
-print('InputParameters Shape = ', Normalized_InputParameters.shape)
-print('InputDisplacement Shape = ', Normalized_InputDisplacement.shape)
-print('----------------------------------------')
+returned_data, returned_scaler = read_data(batch_size, sequence_length, normalize_data=True, save_normalized_data=False, smoothed_data=True)
+InParams, InDisp, OutCycShear, OutCycDisp, OutPushShear, OutPushDisp = returned_data
+param_scaler, disp_scaler, cyc_shear_scaler, cyc_disp_scaler, push_shear_scaler, push_disp_scaler = returned_scaler
 
 # ---------------------- Split Data -------------------------------
 # Split data into training, validation, and testing sets (X: Inputs & Y: Outputs)
-X_parameter_train, X_parameter_test, X_displacement_train, X_displacement_test, Y_shear_train, Y_shear_test, Y_displacement_train, Y_displacement_test = train_test_split(
-    Normalized_InputParameters, Normalized_InputDisplacement, Normalized_OutputCyclicShear, Normalized_OutputCyclicDisplacement, test_size=0.15, random_state=42)
+X_param_train, X_param_test, X_disp_train, X_disp_test, Y_shear_train, Y_shear_test, Y_disp_train, Y_disp_test, Y_shear2_train, Y_shear2_test, Y_disp2_train, Y_disp2_test = train_test_split(
+    InParams, InDisp, OutCycShear, OutCycDisp, OutPushShear, OutPushDisp, test_size=0.15, random_state=20)
 
 # ---------------------- NN Model Building -------------------------
 # Build the neural network model using functional API
-parameters_input = Input(shape=(num_features_input_parameters, ), name='parameters_input')
+parameters_input = Input(shape=(num_features_input_parameters,), name='parameters_input')
 displacement_input = Input(shape=(None, num_features_input_displacement), name='displacement_input')
 print('parameters_input', parameters_input.shape)
 print('displacement_input', displacement_input.shape)
 
-distributed_parameters = RepeatVector(num_timeseries)(parameters_input)
+distributed_parameters = RepeatVector(sequence_length)(parameters_input)
 print('parameters_input2', distributed_parameters.shape)
 
 # Concatenate inputs
@@ -86,15 +38,14 @@ print('concatenated_tensor', concatenated_tensor.shape)
 
 # CuDNNLSTM layer with return_sequences=True
 lstm1 = Bidirectional(LSTM(200, return_sequences=True, stateful=False))(concatenated_tensor)
-activation1 = Activation('relu')(lstm1)
-print('activation1', activation1.shape)
+print('lstm1', lstm1.shape)
 
 # Attention mechanism
-attention = Attention(use_scale=True)([activation1, activation1])  # Add attention mechanism
-attended_representation = Multiply()([activation1, attention])  # Multiply attention weights with LSTM output
+attention = Attention(use_scale=True)([lstm1, lstm1])  # Add attention mechanism
+attended_representation = Multiply()([lstm1, attention])  # Multiply attention weights with LSTM output
 
 # CuDNNLSTM layer with return_sequences=True
-lstm2_input = concatenate([activation1, attended_representation], axis=-1)  # Concatenate LSTM output with attended representation
+lstm2_input = concatenate([lstm1, attended_representation], axis=-1)  # Concatenate LSTM output with attended representation
 lstm2 = Bidirectional(LSTM(200, return_sequences=True, stateful=False))(lstm2_input)
 activation2 = Activation('relu')(lstm2)
 print('activation2', activation2.shape)
@@ -132,9 +83,9 @@ early_stopping = keras.callbacks.EarlyStopping(
 
 # ---------------------- Train the model ---------------------------------------------
 history = model.fit(
-    [X_parameter_train, X_displacement_train],  # Input layer (GMA + STRUCTURAL PARAMETERS)
+    [X_param_train, X_disp_train],  # Input layer (GMA + STRUCTURAL PARAMETERS)
     [Y_shear_train],  # Output layer (SHEAR)
-    epochs=500,
+    epochs=400,
     batch_size=32,
     validation_split=0.15,
     callbacks=[early_stopping]  # checkpoint_callback or early_stopping
@@ -159,27 +110,19 @@ plt.show()
 
 # ---------------------- Model testing ---------------------------------------------------
 # Evaluate the model
-loss = model.evaluate([X_parameter_test, X_displacement_test], [Y_shear_test])
+loss = model.evaluate([X_param_test, X_disp_test], [Y_shear_test])
 print("Test loss:", loss)
 
 # ---------------------- Plotting the results ---------------------------------------------
 test_index = 3
 
-new_input_parameters = X_parameter_test[0:test_index]  # Select corresponding influencing parameters
-new_input_displacement = X_displacement_test[0:test_index]  # Select a single example
+new_input_parameters = X_param_test[0:test_index]  # Select corresponding influencing parameters
+new_input_displacement = X_disp_test[0:test_index]  # Select a single example
 real_shear = Y_shear_test[0:test_index]
-real_displacement = Y_displacement_test[0:test_index]  # Select a single example
+real_displacement = Y_disp_test[0:test_index]  # Select a single example
 
 # Predict displacement for the new data
 predicted_shear = model.predict([new_input_parameters, new_input_displacement])
-
-# Inverse transform the normalized data before plotting
-new_input_parameters = param_scaler.inverse_transform(new_input_parameters)
-new_input_displacement = displacement_scaler.inverse_transform(new_input_displacement)
-real_shear = output_CyclicShear_scaler.inverse_transform(real_shear)
-real_displacement = output_CyclicDisplacement_scaler.inverse_transform(real_displacement)
-predicted_shear = output_CyclicShear_scaler.inverse_transform(predicted_shear)
-# predicted_displacement = output_CyclicDisplacement_scaler.inverse_transform(predicted_displacement)
 
 # Plot the predicted displacement
 plt.figure(figsize=(10, 6))
@@ -197,11 +140,38 @@ for i in range(test_index):
     plt.show()
 
 # Plot the predicted displacement
+# plt.figure(figsize=(10, 6))
+for i in range(test_index):
+    plt.plot(real_displacement[i], predicted_shear[i], label=f'Predicted Displacement - {i + 1}')
+    # plt.plot(new_input_displacement[i, :-1], predicted_shear[i, 1:], label=f'Input displacement - {i + 1}')
+    plt.plot(real_displacement[i], real_shear[i], label=f'True displacement - {i + 1}')
+    # plt.plot(new_input_displacement[i, :-1], real_shear[i, 1:], label=f'Input displacement - {i + 1}')
+    plt.xlabel('Displacement', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+    plt.ylabel('Shear Load', fontdict={'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
+    plt.title('Predicted Displacement Time Series', fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
+    plt.yticks(fontname='Cambria', fontsize=14)
+    plt.xticks(fontname='Cambria', fontsize=14)
+    plt.tight_layout()
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+# Inverse transform the normalized data before plotting
+param_scaler, disp_scaler, cyc_shear_scaler, cyc_disp_scaler, push_shear_scaler, push_disp_scaler = returned_scaler
+
+new_input_parameters = param_scaler.inverse_transform(new_input_parameters)
+new_input_displacement = disp_scaler.inverse_transform(new_input_displacement)
+real_shear = cyc_shear_scaler.inverse_transform(real_shear)
+real_displacement = cyc_disp_scaler.inverse_transform(real_displacement)
+predicted_shear = cyc_shear_scaler.inverse_transform(predicted_shear)
+# predicted_displacement = cyc_disp_scaler.inverse_transform(predicted_displacement)
+
+# Plot the predicted displacement
 plt.figure(figsize=(10, 6))
 for i in range(test_index):
-    # plt.plot(predicted_displacement[i], label=f'Predicted displacement - {i + 1}')
-    plt.plot(real_displacement[i], label=f'Real displacement - {i + 1}')
-    plt.plot(new_input_displacement[i], label=f'Input displacement  - {i + 1}')
+    plt.plot(predicted_shear[i], label=f'Predicted Shear load - {i + 1}')
+    plt.plot(real_shear[i], label=f'Real Shear load - {i + 1}')
     plt.xlabel('Time Step', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
     plt.ylabel('Shear Load', {'fontname': 'Cambria', 'fontstyle': 'italic', 'size': 14})
     plt.title('Predicted Displacement Time Series', {'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
@@ -211,7 +181,8 @@ for i in range(test_index):
     plt.legend()
     plt.grid()
     plt.show()
-#
+
+
 # Plot the predicted displacement
 # plt.figure(figsize=(10, 6))
 for i in range(test_index):

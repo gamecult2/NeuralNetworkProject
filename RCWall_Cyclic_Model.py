@@ -106,8 +106,8 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, eleH=16,
     # STEEL Y BE (boundary element)
     fyYbp = fyb  # fy - tension
     fyYbn = fyb  # fy - compression
-    bybp = 0.02  # strain hardening - tension
-    bybn = 0.02  # strain hardening - compression
+    bybp = 0.015  # strain hardening - tension
+    bybn = 0.015  # strain hardening - compression
 
     # STEEL Y WEB
     fyYwp = fyw  # fy - tension
@@ -154,6 +154,7 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, eleH=16,
     xpU = 2.0
     xnU = 2.3
     rU = -1.9 + (fc0 / 5.2)  # Shape parameter
+
     # ----- confined concrete for BE
     fl1 = -1.58 * MPa  # Lower limit of confined concrete strength
     fl2 = -1.87 * MPa  # Upper limit of confined concrete strength
@@ -187,8 +188,8 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, eleH=16,
     xcrp = 10000  # cracking strain - tension
 
     # -------------------------- ConcreteCM model --------------------------------------------
-    # ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
-    # ops.uniaxialMaterial('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, etC, rt, xcrp, '-GapClose', 1)  # BE (confined concrete)
+    # ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 0)  # Web (unconfined concrete)
+    # ops.uniaxialMaterial('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, etC, rt, xcrp, '-GapClose', 0)  # BE (confined concrete)
     # print('--------------------------------------------------------------------------------------------------')
     # print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
     # print('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, etC, rt, xcrp, '-GapClose', 1)  # BE (confined concrete)
@@ -283,7 +284,7 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
     ops.analysis('Static')
 
     # Define analysis parameters
-    maxUnconvergedSteps = 1
+    maxUnconvergedSteps = 2
     unconvergeSteps = 0
     Nsteps = len(DisplacementStep)
     finishedSteps = 0
@@ -305,7 +306,7 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         if ok != 0:
             # ------------------------ If not converged, reduce the increment -------------------------
             unconvergeSteps += 1
-            Dts = 50  # Analysis loop with 10x smaller increments
+            Dts = 20  # Analysis loop with 10x smaller increments
             smallDincr = Dincr / Dts
             for k in range(1, Dts):
                 if printProgression:
@@ -396,7 +397,7 @@ def run_pushover(MaxDisp=75, dispIncr=1, plotResults=True, printProgression=True
         if ok != 0:
             # ------------------------ If not converged, reduce the increment -------------------------
             unconvergeSteps += 1
-            Dts = 50  # Try 50x smaller increments
+            Dts = 5  # Try 50x smaller increments
             smallDincr = dispIncr / Dts
             for k in range(1, Dts):
                 if printProgression:

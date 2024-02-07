@@ -13,26 +13,19 @@ def analysisLoopDisp(ok, step, Dincr, ControlNode, ControlNodeDof):
     if ok != 0:
         print("Trying Newton with Initial Tangent ..")
         ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr)
-        ops.test('NormDispIncr', 1e-8, 1000)
+        ops.test('NormDispIncr', 1e-8, 1000, 0)
         ops.algorithm('Newton', '-initial')
-        ok = ops.analyze(1)
-
-    if ok != 0:
-        print("Trying Broyden..")
-        ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr)
-        ops.test('NormDispIncr', 1e-8, 1000)
-        ops.algorithm('Broyden', 500)
         ok = ops.analyze(1)
 
     if ok != 0:
         print("Trying RaphsonNewton ..")
         ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr)
-        ops.test('NormDispIncr', 1e-8, 1000)
+        ops.test('NormDispIncr', 1e-8, 1000, 0)
         ops.algorithm('RaphsonNewton')
         ok = ops.analyze(1)
 
     ops.integrator('DisplacementControl', ControlNode, ControlNodeDof, Dincr)
-    ops.test('NormDispIncr', 1e-8, 1000)
+    ops.test('NormDispIncr', 1e-8, 1000, 0)
     ops.algorithm('KrylovNewton')
 
     return ok
@@ -121,7 +114,7 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, eleH=16,
     # ---------------------------------------------------------------------------------------
     global Aload  # axial force in N according to ACI318-19 (not considering the reinforced steel at this point for simplicity)
     Aload = 0.85 * abs(fc) * tw * lw * loadCoeff
-    # print('Axial load (kN) = ', Aload / 1000)
+    # print('Axial load fc(kN) = ', Aload / 1000)
 
     # ---------------------------------------------------------------------------------------
     # Define Steel uni-axial materials
@@ -156,7 +149,6 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, eleH=16,
     R0 = 20.0  # initial value of curvature parameter
     cR1 = 0.925  # control the transition from elastic to plastic branches
     cR2 = 0.0015  # control the transition from elastic to plastic branches
-
 
     # SteelMPF model
     ops.uniaxialMaterial('SteelMPF', sYw, fyYwp, fyYwn, Es, bywp, bywn, R0, cR1, cR2)  # Steel Y web
@@ -333,10 +325,10 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
             ok = analysisLoopDisp(ok, j, Dincr, ControlNode, ControlNodeDof)
         if ok != 0:
             print("Problem running Cyclic analysis for the model : Ending analysis ")
-        if ok == 0:
-            D0 = D1  # move to next step
-        else:
             break
+        else:
+            D0 = D1  # move to next step
+
         finishedSteps = j + 1
         disp = ops.nodeDisp(ControlNode, ControlNodeDof)
         baseShear = -ops.getLoadFactor(2) / 1000  # Convert to from N to kN
@@ -359,7 +351,7 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         # plt.plot(DisplacementStep, -baseShearData, color='blue', linewidth=1.2, label='Numerical test')
         plt.plot(dispData, -baseShearData, color="red", linestyle="-", linewidth=2.2, label='Output Displacement vs Shear Load')
         # plt.plot([row[0] for row in dataCyc[:finishedSteps]], [-row[1] for row in dataCyc[:finishedSteps]], color="black", linestyle="-", linewidth=1.2, label='Output Displacement vs Shear Load')
-        plt.plot(DisplacementStep[0:finishedSteps], -baseShearData[1:finishedSteps+1], color="blue", linestyle="-", linewidth=1.2, label='Input Displacement vs Shear Load')
+        plt.plot(DisplacementStep[0:finishedSteps], -baseShearData[1:finishedSteps + 1], color="blue", linestyle="-", linewidth=1.2, label='Input Displacement vs Shear Load')
         plt.axhline(0, color='black', linewidth=0.4)
         plt.axvline(0, color='black', linewidth=0.4)
         plt.grid(linestyle='dotted')
@@ -411,13 +403,16 @@ def run_pushover(MaxDisp=75, dispIncr=1, plotResults=True, printProgression=True
         ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, dispIncr)  # Target node is ControlNode and dof is 1
         ok = ops.analyze(1)
         # ------------------------ If not converged -------------------------
+        # if ok != 0:
+        #     ok = analysisLoopDisp(ok, j, dispIncr, ControlNode, ControlNodeDof)
+        # if ok != 0:
+        #     print("Problem running Pushover analysis for the model : Ending analysis ")
+        #     break
+        # D0 = D1  # move to next step
         if ok != 0:
-            ok = analysisLoopDisp(ok, j, dispIncr, ControlNode, ControlNodeDof)
-        if ok != 0:
-            print("Problem running Pushover analysis for the model : Ending analysis ")
             break
-
-        dispImpo += dispIncr
+        else:
+            dispImpo += dispIncr
         finishedSteps = j + 1
         disp = ops.nodeDisp(ControlNode, ControlNodeDof)
         baseShear = -ops.getLoadFactor(3) / 1000  # Convert to from N to kN
