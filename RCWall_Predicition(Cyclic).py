@@ -50,8 +50,8 @@ info = 'LSTM-AE'
 # ---------------------- Load the scaler for normalization -------------------------------
 param_scaler = 'RCWall_Data/Scaler/param_scaler.joblib'
 disp_scaler = 'RCWall_Data/Scaler/disp_scaler.joblib'
-cyc_shear_scaler = 'RCWall_Data/Scaler/cyc_shear_scaler.joblib'
-cyc_pushover_scaler = 'RCWall_Data/Scaler/cyc_pushover_scaler.joblib'
+cyclic_scaler = 'RCWall_Data/Scaler/cyclic_scaler.joblib'
+pushover_scaler = 'RCWall_Data/Scaler/pushover_scaler.joblib'
 
 
 # **********************************************************************
@@ -59,58 +59,34 @@ cyc_pushover_scaler = 'RCWall_Data/Scaler/cyc_pushover_scaler.joblib'
 # **********************************************************************
 # ------- Load New data for prediction -------------------------------------------------------------------------------------
 def reftest():
-    name = 'Thomsen_and_Wallace-RW2'
+    name = 'Thomsen_and_Wallace_RW2'
     sign = 'A'
     parameters_input = np.array((102, 3810, 1220, 190, 42, 434, 448, 0.0300, 0.0029, 0.0920)).reshape(1, -1)
     max_displacement = 86
     return parameters_input, max_displacement, name, sign
 
 
-def ref1():
-    name = 'Thomsen-RW1'
+def ref4():
+    name = 'Thomsen_RW1'
     sign = '④'
     parameters_input = np.array((102, 3660, 1220, 190, 42, 434, 448, 0.0300, 0.0029, 0.0900)).reshape(1, -1)
     max_displacement = 70
     return parameters_input, max_displacement, name, sign
 
 
-def ref2():
-    name = 'Tran-S63'
+def ref5():
+    name = 'Tran_S63'
     sign = '⑤'
     parameters_input = np.array((152, 2688, 1220, 208, 49, 475, 515, 0.0711, 0.0061, 0.0860)).reshape(1, -1)
     max_displacement = 73
     return parameters_input, max_displacement, name, sign
 
 
-def ref3():
-    name = 'Alarcon-W1'
+def ref6():
+    name = 'Alarcon_W1'
     sign = '⑥'
     parameters_input = np.array((100, 1600, 700, 80, 27, 469, 445, 0.0450, 0.0072, 0.1800)).reshape(1, -1)
     max_displacement = 36
-    return parameters_input, max_displacement, name, sign
-
-
-def refA():
-    name = 'Lefas-SW22'
-    sign = 'Ⓓ'
-    parameters_input = np.array((65, 650, 1350, 140, 51, 470, 470, 0.0330, 0.0025, 0.1000)).reshape(1, -1)
-    max_displacement = 16
-    return parameters_input, max_displacement, name, sign
-
-
-def refB():
-    name = 'Zhang-SW12'
-    sign = 'Ⓔ'
-    parameters_input = np.array((120, 1000, 2000, 200, 20, 352, 379, 0.0167, 0.0100, 0.2000)).reshape(1, -1)
-    max_displacement = 23
-    return parameters_input, max_displacement, name, sign
-
-
-def refC():
-    name = 'Mosoarca-SW1'
-    sign = 'Ⓕ'
-    parameters_input = np.array((80, 2600, 1250, 80, 50, 386, 386, 0.0101, 0.0101, 0.0110)).reshape(1, -1)
-    max_displacement = 26
     return parameters_input, max_displacement, name, sign
 
 
@@ -135,12 +111,12 @@ predicted_shear = loaded_model.predict([parameters_input, displacement_input])
 # ------- Denormalize New data ------------------------------------------
 parameter_values = denormalize(parameters_input, scaler_filename=param_scaler, sequence=False)
 DisplacementStep = denormalize(displacement_input, scaler_filename=disp_scaler, sequence=True)
-predicted_shear = denormalize(predicted_shear, scaler_filename=cyc_shear_scaler, sequence=True)
+predicted_shear = denormalize(predicted_shear, scaler_filename=cyclic_scaler, sequence=True)
 
 
 plotting(DisplacementStep[-1], predicted_shear[-1], 'Displacement (mm)', 'Base Shear (kN)', name, sign, save_fig=False, plotValidation=True)
 
-'''
+# '''
 # **********************************************************************
 # TESTING DATASET
 # **********************************************************************
@@ -172,12 +148,11 @@ predicted_shear = loaded_model.predict([new_input_parameters, new_input_displace
 # ------- Denormalize New data ------------------------------------------
 new_input_parameters = denormalize(new_input_parameters, scaler_filename=param_scaler, sequence=False)
 new_input_displacement = denormalize(new_input_displacement, scaler_filename=disp_scaler, sequence=True)
-real_shear = denormalize(real_shear, scaler_filename=cyc_shear_scaler, sequence=True)
-predicted_shear = denormalize(predicted_shear, scaler_filename=cyc_shear_scaler, sequence=True)
+real_shear = denormalize(real_shear, scaler_filename=cyclic_scaler, sequence=True)
+predicted_shear = denormalize(predicted_shear, scaler_filename=cyclic_scaler, sequence=True)
 
 test_index = (2, 5, 13)
 name = ('①', '②', '③')
-name = ('Ⓐ', 'Ⓑ', 'Ⓒ')
 for k, i in enumerate(test_index):
     plt.figure(figsize=(4*1.1, 3*1.25))
     plt.subplots_adjust(top=0.918, bottom=0.139, left=0.194, right=0.979, hspace=0.2, wspace=0.185)
@@ -196,4 +171,4 @@ for k, i in enumerate(test_index):
     plt.legend(loc='upper left', bbox_to_anchor=(0, 1), prop={'family': 'Cambria', 'size': 9})
     plt.savefig(f'CyclicPredicted{name[k]}{info}.svg', format='svg', dpi=300, bbox_inches='tight')
     plt.show()
-'''
+# '''

@@ -95,28 +95,28 @@ def read_data(batch_size=100, sequence_length=500, normalize_data=True, save_nor
     # Read input and output data
     InParams = np.genfromtxt(data_folder / "Dataset_pushover/InputParameters_values.csv", delimiter=',', max_rows=batch_size)
     InDisp = np.genfromtxt(data_folder / "Dataset_pushover/InputDisplacement_values.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
-    # OutCycShear = np.genfromtxt(data_folder / "Dataset_cyclic/OutputCyclicShear_values.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
+    OutCycShear = np.genfromtxt(data_folder / "Dataset_cyclic/OutputCyclicShear_values.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
     OutPushShear = np.genfromtxt(data_folder / "Dataset_pushover/OutputPushoverShear_values.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
 
     if normalize_data:
         # Normalize data and save scalers
         NormInParams, param_scaler = normalize(InParams, sequence=False, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/param_scaler.joblib")
         NormInDisp, disp_scaler = normalize(InDisp, sequence=True, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/disp_scaler.joblib")
-        # NormOutCycShear, cyc_shear_scaler = normalize(OutCycShear, sequence=True, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/cyc_shear_scaler.joblib")
-        NormOutPushShear, cyc_pushover_scaler = normalize(OutPushShear, sequence=True, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/cyc_pushover_scaler.joblib")
+        NormOutCycShear, cyclic_scaler = normalize(OutCycShear, sequence=True, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/cyclic_scaler.joblib")
+        NormOutPushShear, pushover_scaler = normalize(OutPushShear, sequence=True, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/pushover_scaler.joblib")
 
         if save_normalized_data:
             # Save normalized data to CSV files
             np.savetxt(data_folder / "Normalized/InputParameters.csv", NormInParams, delimiter=',')
             np.savetxt(data_folder / "Normalized/InputDisplacement.csv", NormInDisp, delimiter=',')
-            # np.savetxt(data_folder / "Normalized/OutputCyclicShear.csv", NormOutCycShear, delimiter=',')
+            np.savetxt(data_folder / "Normalized/OutputCyclicShear.csv", NormOutCycShear, delimiter=',')
             np.savetxt(data_folder / "Normalized/OutputPushoverShear.csv", NormOutPushShear, delimiter=',')
 
         # print('InputParameters Shape = ', InParams.shape)
         # print('InputDisplacement Shape = ', InDisp.shape)
-        return (NormInParams, NormInDisp, NormOutPushShear), \
-               (param_scaler, disp_scaler, cyc_pushover_scaler)
+        return (NormInParams, NormInDisp, NormOutCycShear, NormOutPushShear), \
+               (param_scaler, disp_scaler, cyclic_scaler, pushover_scaler)
 
     else:
         # print("Raw Data Loaded")
-        return InParams, InDisp, OutPushShear
+        return InParams, InDisp, OutCycShear, OutPushShear

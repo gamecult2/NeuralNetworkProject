@@ -321,8 +321,8 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         ops.integrator("DisplacementControl", ControlNode, ControlNodeDof, Dincr)
         ok = ops.analyze(1)
         # ------------------------ If not converged -------------------------
-        if ok != 0:
-            ok = analysisLoopDisp(ok, j, Dincr, ControlNode, ControlNodeDof)
+        # if ok != 0:
+        #     ok = analysisLoopDisp(ok, j, Dincr, ControlNode, ControlNodeDof)
         if ok != 0:
             print("Problem running Cyclic analysis for the model : Ending analysis ")
             break
@@ -405,11 +405,8 @@ def run_pushover(MaxDisp=75, dispIncr=1, plotResults=True, printProgression=True
         # ------------------------ If not converged -------------------------
         # if ok != 0:
         #     ok = analysisLoopDisp(ok, j, dispIncr, ControlNode, ControlNodeDof)
-        # if ok != 0:
-        #     print("Problem running Pushover analysis for the model : Ending analysis ")
-        #     break
-        # D0 = D1  # move to next step
         if ok != 0:
+            print("Problem running Pushover analysis for the model : Ending analysis ")
             break
         else:
             dispImpo += dispIncr

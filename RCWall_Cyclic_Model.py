@@ -397,7 +397,7 @@ def run_pushover(MaxDisp=75, dispIncr=1, plotResults=True, printProgression=True
         if ok != 0:
             # ------------------------ If not converged, reduce the increment -------------------------
             unconvergeSteps += 1
-            Dts = 5  # Try 50x smaller increments
+            Dts = 20  # Try 50x smaller increments
             smallDincr = dispIncr / Dts
             for k in range(1, Dts):
                 if printProgression:

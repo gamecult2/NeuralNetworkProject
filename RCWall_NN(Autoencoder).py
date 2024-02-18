@@ -17,7 +17,7 @@ def r_square(y_true, y_pred):
 
 
 # Define the number of sample to be used
-batch_size = 100000  # 3404
+batch_size = 50000  # 3404
 num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
 sequence_length = 500
 parameters_length = 10
@@ -26,7 +26,7 @@ num_features_input_parameters = 10
 
 returned_data, returned_scaler = read_data(batch_size, sequence_length, normalize_data=True, save_normalized_data=False, smoothed_data=False)
 InParams, InDisp, OutCycShear = returned_data
-param_scaler, disp_scaler, cyc_shear_scaler = returned_scaler
+param_scaler, disp_scaler, cyclic_scaler = returned_scaler
 
 # ---------------------- Split Data -------------------------------
 # Split data into training, validation, and testing sets (X: Inputs & Y: Outputs)
@@ -68,7 +68,7 @@ model = Model(inputs=[parameters_input, displacement_input], outputs=output_shea
 # ---------------------- Compile the model -----------------------------------------
 learning_rate = 0.001
 epochs = 600
-batch_size = 32
+batch_size = 64
 patience = 30
 
 # Define Adam and SGD optimizers
@@ -178,9 +178,9 @@ for i in range(test_index):
 
 new_input_parameters = denormalize(new_input_parameters, param_scaler, sequence=False)
 new_input_displacement = denormalize(new_input_displacement, disp_scaler, sequence=True)
-real_shear = denormalize(real_shear, cyc_shear_scaler, sequence=True)
+real_shear = denormalize(real_shear, cyclic_scaler, sequence=True)
 
-predicted_shear = denormalize(predicted_shear, cyc_shear_scaler, sequence=True)
+predicted_shear = denormalize(predicted_shear, cyclic_scaler, sequence=True)
 
 # Plot the predicted displacement
 plt.figure(figsize=(10, 6))

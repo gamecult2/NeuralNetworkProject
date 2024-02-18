@@ -149,7 +149,7 @@ def Dazio_WSH3():
 def Thomsen_and_Wallace_RW2():
     # https://sci-hub.st/10.1061/(asce)0733-9445(2004)130:4(618)
     global name
-    name = 'Thomsen_and_Wallace-RW2'
+    name = 'Thomsen_and_Wallace_RW2'
     # Wall Geometry ------------------------------------------------------------------
     tw = 102 * mm  # Wall thickness
     hw = 3.81 * m  # Wall height
@@ -233,7 +233,7 @@ def Thomsen_and_Wallace_RW2():
 def Thomsen_and_Wallace_RW1():
     # https://sci-hub.st/10.1061/(asce)0733-9445(2004)130:4(618)
     global name
-    name = 'Thomsen_and_Wallace-RW1'
+    name = 'Thomsen_and_Wallace_RW1'
     # Wall Geometry ------------------------------------------------------------------
     tw = 102 * mm  # Wall thickness
     hw = 3.81 * m  # Wall height
@@ -408,7 +408,7 @@ def Lu_SW11():
 def Test():
     # https://sci-hub.st/10.1061/(asce)0733-9445(2004)130:4(618)
     global name
-    name = 'W1-SR'
+    name = 'W1_SR'
     # Wall Geometry
     #                            (tw,    hw,     lw,    lbe,   fc,   fyb,  fyw,   rouYb,  rouYw, loadCoeff)
 
@@ -507,7 +507,7 @@ def Lefas_SW():
 def Zhang_SW12():
     # https://sci-hub.st/10.1061/(asce)0733-9445(2004)130:4(618)
     global name
-    name = 'Zhang_SW1-2'
+    name = 'Zhang_SW12'
     # Wall Geometry
     # 102.0, 4572.0, 1905.0, 140.0, 45.6, 463.7, 463.7, 0.0435, 0.0031, 0.08
     tw = 125 * mm  # Wall thickness
@@ -629,7 +629,7 @@ def Aejaz_SW1():
 def Alarcon_W1():
     # http://dx.doi.org/10.1016/j.engstruct.2014.04.047
     global name
-    name = 'Alarcon-W1'
+    name = 'Alarcon_W1'
 
     # Wall Geometry
     tw = 100 * mm  # Wall thickness
@@ -668,7 +668,7 @@ def Farhad_RWB():
     # fTESTS ON SLENDER DUCTILE STRUCTURAL WALLS
     # DESIGNED ACCORDING TO NEW ZEALAND STANDARD
     global name
-    name = 'Farhad-RWB'
+    name = 'Farhad_RWB'
     # Wall Geometry
     #                            (tw,    hw,     lw,    lbe,   fc,   fyb,  fyw,   rouYb,  rouYw, loadCoeff)
 
@@ -710,7 +710,7 @@ def Baek_NS2L():
     # fTESTS ON SLENDER DUCTILE STRUCTURAL WALLS
     # DESIGNED ACCORDING TO NEW ZEALAND STANDARD
     global name
-    name = 'Baek-NS2L'
+    name = 'Baek_NS2L'
     # Wall Geometry
     #                            (tw,    hw,     lw,    lbe,   fc,   fyb,  fyw,   rouYb,  rouYw, loadCoeff)
 

@@ -3,8 +3,10 @@ from Units import *
 import random
 import math
 import csv
+
 import RCWall_Cyclic_Model as rcmodel
 # import RCWall_Cyclic_Model_simple as rcmodel
+
 from RCWall_Cyclic_Parameters import *
 from GenerateCyclicLoading import *
 
@@ -34,12 +36,11 @@ random.seed(45)
 #           DEFINE NUMBER OF SAMPLE TO GENERATE
 # ***************************************************************************************************
 # Define the number of samples to be generated
-num_samples = 250000
-timeseries_length = 501
+num_samples = 600000
+sequence_length = 501
 
 # Open the CSV file for writing
-# with open("RCWall_Data/RCWall_Dataset_cyclic.csv", 'a', newline='') as file:
-with open("RCWall_Data/RCWall_Dataset_pushover2.csv", 'a', newline='') as file:
+with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
     writer = csv.writer(file)
     converged = []
     nonconverged = []
@@ -67,15 +68,14 @@ with open("RCWall_Data/RCWall_Dataset_pushover2.csv", 'a', newline='') as file:
         # max_displacement = int(random.uniform(minLoading[1], maxLoading[1]))
         max_displacement = int(random.uniform(hw*0.005, hw*0.040))
         repetition_cycles = int(random.uniform(minLoading[2], maxLoading[2]))
-        num_points = math.ceil(timeseries_length / (num_cycles * repetition_cycles))  # Ensure at least 500 points in total.
+        num_points = math.ceil(sequence_length / (num_cycles * repetition_cycles))  # Ensure at least 500 points in total.
 
         # DisplacementStep = list(generate_increasing_cyclic_loading(num_cycles, initial_displacement, max_displacement, num_points, repetition_cycles))
         DisplacementStep = list(generate_increasing_cyclic_loading_with_repetition(num_cycles,  max_displacement, num_points, repetition_cycles))
-        DisplacementStep = DisplacementStep[: timeseries_length]  # Limit displacement of Cyclic analysis to 1000 points
-        # PushoverStep = np.arange(0, max_displacement + time_step, time_step)
+        DisplacementStep = DisplacementStep[: sequence_length]  # Limit displacement of Cyclic analysis to 1000 points
 
         # Pushover parameters
-        DispIncr = max_displacement / timeseries_length  # limit displacement for Pushover analysis to 1000 points
+        DispIncr = max_displacement / sequence_length  # limit displacement for Pushover analysis to 1000 points
 
         # Overall parameters
         parameter_values = [tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff]
@@ -90,11 +90,11 @@ with open("RCWall_Data/RCWall_Dataset_pushover2.csv", 'a', newline='') as file:
         #           RUN ANALYSIS (CYCLIC + PUSHOVER)
         # ***************************************************************************************************
         # CYCLIC ANALYSIS
-        # print("\033[92m Running Cyclic Analysis :", cyclic_values, "\033[0m", '--> DisplacementStep :', len(DisplacementStep),)
-        # rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, printProgression=False)
-        # rcmodel.run_gravity(printProgression=False)
-        # [x1, y1] = rcmodel.run_cyclic(DisplacementStep, plotResults=False, printProgression=False, recordData=False)
-        # rcmodel.reset_analysis()
+        print("\033[92m Running Cyclic Analysis :", cyclic_values, "\033[0m", '--> DisplacementStep :', len(DisplacementStep),)
+        rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, printProgression=False)
+        rcmodel.run_gravity(printProgression=False)
+        [x1, y1] = rcmodel.run_cyclic(DisplacementStep, plotResults=False, printProgression=False, recordData=False)
+        rcmodel.reset_analysis()
 
         # RUN PUSHOVER ANALYSIS
         print("\033[92m Running Pushover Analysis :", pushover_values, "\033[0m")
@@ -107,16 +107,16 @@ with open("RCWall_Data/RCWall_Dataset_pushover2.csv", 'a', newline='') as file:
         #           SAVE DATA (CYCLIC + PUSHOVER)
         # ***************************************************************************************************
         # if 980 <= len(x1) <= 1020:
-        # if 2980 <= len(x1) <= 3020 and 2980 <= len(x2) <= 3020:  # Check if the length of the response results is 1000 to write it to the file other results will be removed because of non-convergence
-        if len(x2) == timeseries_length:
+        if len(x1) == sequence_length and len(x2) == sequence_length:  # Check if the length of the response results is 1000 to write it to the file other results will be removed because of non-convergence
+            # if len(x2) == timeseries_length:
             converged.append(sample_index)
             # Save all samples in the same CSV file
             # ------------------------ Inputs (Structural Parameters + Cyclic Loading) ---------------------------------------------------------------------
             writer.writerow(['InputParameters_values'] + parameter_values + cyclic_values)  # The 10 Parameters used for the simulation
             writer.writerow(['InputDisplacement_values'] + DisplacementStep)  # Cyclic Displacement imposed to the RC Shear Wall
             # ----------------------- Outputs (Hysteresis Curve - ShearBase Vs Lateral Displacement) -------------------------------------------------------
-            # writer.writerow(['OutputCyclicDisplacement_values'] + x1.astype(str).tolist())  # Displacement Response of the RC Shear Wall
-            # writer.writerow(['OutputCyclicShear_values'] + y1.astype(str).tolist())  # Shear Response of the RC Shear Wall
+            writer.writerow(['OutputCyclicDisplacement_values'] + x1.astype(str).tolist())  # Displacement Response of the RC Shear Wall
+            writer.writerow(['OutputCyclicShear_values'] + y1.astype(str).tolist())  # Shear Response of the RC Shear Wall
             # ----------------------- Outputs (Pushover Curve -  ShearBase Vs Lateral Displacement) --------------------------------------------------------
             writer.writerow(['OutputPushoverDisplacement_values'] + x2.astype(str).tolist())  # Displacement Response of the RC Shear Wall
             writer.writerow(['OutputPushoverShear_values'] + y2.astype(str).tolist())  # Pushover Response of the RC Shear Wall
