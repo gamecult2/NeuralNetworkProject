@@ -1,5 +1,4 @@
 import csv
-import pandas as pd
 
 
 def open_csv_file(filename):
@@ -27,53 +26,52 @@ def save_data_to_file(filename, data):
 
 BASE_FILE_PATH = "RCWall_Data"  # Define a constant for the base file path
 
-pushover = False
 cyclic = False
+pushover = False
 both = True
 
 if cyclic:
     filename = f"{BASE_FILE_PATH}/RCWall_Dataset_cyclic.csv"
     folder = "Dataset_cyclic"
-if pushover:
-    filename = f"{BASE_FILE_PATH}/RCWall_Dataset_pushover2.csv"
+elif pushover:
+    filename = f"{BASE_FILE_PATH}/RCWall_Dataset_pushover.csv"
     folder = "Dataset_pushover"
-if both:
-    filename = f"{BASE_FILE_PATH}/RCWall_Dataset_Full.csv"
-    folder = "Dataset_Full"
+elif both:
+    filename = f"{BASE_FILE_PATH}/RCWall_Dataset_Full(ShortWall).csv"
+    folder = "RCWall_Dataset_Full(ShortWall)"
 
-rows = open_csv_file(filename)
-data_points = split_rows(rows)
+# Read CSV file into a DataFrame
+df = open_csv_file(filename)
+data_points = split_rows(df)
 
 if cyclic:
-    # Extract and save the parameter values, displacement values, and y values to separate files
     # ------------------------ Inputs (Structural Parameters + Cyclic Loading) ---------------------------------------------------------------------
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputParameters_values.csv", extract_values(data_points, 0))
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputDisplacement_values.csv", extract_values(data_points, 1))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputParameters.csv", extract_values(data_points, 0))
+    # save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputCyclicDisplacement.csv", extract_values(data_points, 1))
 
     # ----------------------- Outputs (Hysteresis Curve - ShearBase Vs Lateral Displacement) -------------------------------------------------------
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputCyclicDisplacement_values.csv", extract_values(data_points, 2))
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputCyclicShear_values.csv", extract_values(data_points, 3))
+    # save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputCyclicDisplacement.csv", extract_values(data_points, 2))
+    # save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputCyclicShear.csv", extract_values(data_points, 3))
 
 if pushover:
-    # Extract and save the parameter values, displacement values, and y values to separate files
     # ------------------------ Inputs (Structural Parameters + Cyclic Loading) ---------------------------------------------------------------------
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputParameters_values.csv", extract_values(data_points, 0))
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputDisplacement_values.csv", extract_values(data_points, 1))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputParameters.csv", extract_values(data_points, 0))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputPushoverDisplacement.csv", extract_values(data_points, 1))
 
     # ----------------------- Outputs (Pushover Curve -  ShearBase Vs Lateral Displacement) --------------------------------------------------------
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputPushoverDisplacement_values.csv", extract_values(data_points, 2))
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputPushoverShear_values.csv", extract_values(data_points, 3))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputPushoverDisplacement.csv", extract_values(data_points, 2))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputPushoverShear.csv", extract_values(data_points, 3))
 
 if both:
-    # Extract and save the parameter values, displacement values, and y values to separate files
     # ------------------------ Inputs (Structural Parameters + Cyclic Loading) ---------------------------------------------------------------------
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputParameters_values.csv", extract_values(data_points, 0))
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputDisplacement_values.csv", extract_values(data_points, 1))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputParameters.csv", extract_values(data_points, 0))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputCyclicDisplacement.csv", extract_values(data_points, 1))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/InputPushoverDisplacement.csv", extract_values(data_points, 4))
 
     # ----------------------- Outputs (Hysteresis Curve - ShearBase Vs Lateral Displacement) -------------------------------------------------------
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputCyclicDisplacement_values.csv", extract_values(data_points, 2))
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputCyclicShear_values.csv", extract_values(data_points, 3))
+    # save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputCyclicDisplacement.csv", extract_values(data_points, 2))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputCyclicShear.csv", extract_values(data_points, 3))
 
     # ----------------------- Outputs (Pushover Curve -  ShearBase Vs Lateral Displacement) --------------------------------------------------------
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputPushoverDisplacement_values.csv", extract_values(data_points, 4))
-    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputPushoverShear_values.csv", extract_values(data_points, 5))
+    # save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputPushoverDisplacement.csv", extract_values(data_points, 4))
+    save_data_to_file(f"{BASE_FILE_PATH}/{folder}/OutputPushoverShear.csv", extract_values(data_points, 5))

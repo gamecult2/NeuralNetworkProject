@@ -36,11 +36,11 @@ random.seed(45)
 #           DEFINE NUMBER OF SAMPLE TO GENERATE
 # ***************************************************************************************************
 # Define the number of samples to be generated
-num_samples = 600000
-sequence_length = 501
+num_samples = 100000
+sequence_length = 2000
 
 # Open the CSV file for writing
-with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
+with open("RCWall_Data/RCWall_Dataset_Full(ShortWall).csv", 'a', newline='') as file:
     writer = csv.writer(file)
     converged = []
     nonconverged = []
@@ -107,7 +107,9 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
         #           SAVE DATA (CYCLIC + PUSHOVER)
         # ***************************************************************************************************
         # if 980 <= len(x1) <= 1020:
-        if len(x1) == sequence_length and len(x2) == sequence_length:  # Check if the length of the response results is 1000 to write it to the file other results will be removed because of non-convergence
+        y2_has_negative = np.any(y2 < 0)  # Check if y2 has any negative number
+
+        if len(x1) == sequence_length and len(x2) == sequence_length and not y2_has_negative:  # Check if the length of the response results is 1000 to write it to the file other results will be removed because of non-convergence
             # if len(x2) == timeseries_length:
             converged.append(sample_index)
             # Save all samples in the same CSV file
@@ -115,6 +117,8 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
             writer.writerow(['InputParameters_values'] + parameter_values + cyclic_values)  # The 10 Parameters used for the simulation
             writer.writerow(['InputDisplacement_values'] + DisplacementStep)  # Cyclic Displacement imposed to the RC Shear Wall
             # ----------------------- Outputs (Hysteresis Curve - ShearBase Vs Lateral Displacement) -------------------------------------------------------
+            x1 = np.delete(x1, 1)
+            y1 = np.delete(y1, 1)
             writer.writerow(['OutputCyclicDisplacement_values'] + x1.astype(str).tolist())  # Displacement Response of the RC Shear Wall
             writer.writerow(['OutputCyclicShear_values'] + y1.astype(str).tolist())  # Shear Response of the RC Shear Wall
             # ----------------------- Outputs (Pushover Curve -  ShearBase Vs Lateral Displacement) --------------------------------------------------------

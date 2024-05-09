@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -6,7 +7,6 @@ import os
 # from RCWall_Cyclic_Parameters import *
 import joblib
 from pathlib import Path  # For path handling
-
 
 # Allocate space for Bidirectional(LSTM)
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
@@ -86,37 +86,53 @@ def denormalize(data_scaled, scaler=None, scaler_filename=None, sequence=False):
     return data_restored
 
 
-def read_data(batch_size=100, sequence_length=500, normalize_data=True, save_normalized_data=False, smoothed_data=False):
+def read_data(batch_size=100, sequence_length=500, normalize_data=True, save_normalized_data=False, pushover=False):
     # ---------------------- Read Data  -------------------------------
-    data_folder = Path("RCWall_Data")  # Base data folder
-    if smoothed_data == True:
-        data_folder = data_folder / "Smoothed"
+    data_folder = Path("RCWall_Data/Dataset_full")  # Base data folder
 
-    # Read input and output data
-    InParams = np.genfromtxt(data_folder / "Dataset_pushover/InputParameters_values.csv", delimiter=',', max_rows=batch_size)
-    InDisp = np.genfromtxt(data_folder / "Dataset_pushover/InputDisplacement_values.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
-    OutCycShear = np.genfromtxt(data_folder / "Dataset_cyclic/OutputCyclicShear_values.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
-    OutPushShear = np.genfromtxt(data_folder / "Dataset_pushover/OutputPushoverShear_values.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
+    # Read input and output data from Parquet files
+    InParams = pd.read_parquet(data_folder / "InputParameters.parquet").iloc[:batch_size].to_numpy(dtype=float)  # Assuming numerical data
+    if pushover:
+        InDisp = pd.read_parquet(data_folder / "InputPushoverDisplacement.parquet").iloc[:batch_size, 0:sequence_length].to_numpy(dtype=float)
+        OutShear = pd.read_parquet(data_folder / "OutputPushoverShear.parquet").iloc[:batch_size, 0:sequence_length].to_numpy(dtype=float)
+    else:
+        InDisp = pd.read_parquet(data_folder / "InputCyclicDisplacement.parquet").iloc[:batch_size, 0:sequence_length].to_numpy(dtype=float)
+        OutShear = pd.read_parquet(data_folder / "OutputCyclicShear.parquet").iloc[:batch_size, 0:sequence_length].to_numpy(dtype=float)
+
+    # # Read input and output data
+    # InParams = np.genfromtxt(data_folder / "Dataset_full/InputParameters.csv", delimiter=',', max_rows=batch_size)
+    # if pushover:
+    #     InDisp = np.genfromtxt(data_folder / "Dataset_full/InputPushoverDisplacement.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
+    #     OutShear = np.genfromtxt(data_folder / "Dataset_full/OutputPushoverShear.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
+    # else:
+    #     InDisp = np.genfromtxt(data_folder / "Dataset_full/InputCyclicDisplacement.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
+    #     OutShear = np.genfromtxt(data_folder / "Dataset_full/OutputCyclicShear.csv", delimiter=',', max_rows=batch_size, usecols=range(sequence_length))
 
     if normalize_data:
         # Normalize data and save scalers
-        NormInParams, param_scaler = normalize(InParams, sequence=False, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/param_scaler.joblib")
-        NormInDisp, disp_scaler = normalize(InDisp, sequence=True, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/disp_scaler.joblib")
-        NormOutCycShear, cyclic_scaler = normalize(OutCycShear, sequence=True, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/cyclic_scaler.joblib")
-        NormOutPushShear, pushover_scaler = normalize(OutPushShear, sequence=True, scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/pushover_scaler.joblib")
+        NormInParams, param_scaler = normalize(InParams, sequence=False, range=(0, 1), scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/param_scaler.joblib")
+        if pushover:
+            NormInDisp, disp_scaler = normalize(InDisp, sequence=True, range=(-1, 1), scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/disp_pushover_scaler.joblib")
+            NormOutShear, shear_scaler = normalize(OutShear, sequence=True, range=(-1, 1), scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/shear_pushover_scaler.joblib")
+        else:
+            NormInDisp, disp_scaler = normalize(InDisp, sequence=True, range=(-1, 1), scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/disp_cyclic_scaler.joblib")
+            NormOutShear, shear_scaler = normalize(OutShear, sequence=True, range=(-1, 1), scaler_filename=None, fit=True, save_scaler_path=data_folder / "Scaler/shear_cyclic_scaler.joblib")
 
         if save_normalized_data:
             # Save normalized data to CSV files
             np.savetxt(data_folder / "Normalized/InputParameters.csv", NormInParams, delimiter=',')
-            np.savetxt(data_folder / "Normalized/InputDisplacement.csv", NormInDisp, delimiter=',')
-            np.savetxt(data_folder / "Normalized/OutputCyclicShear.csv", NormOutCycShear, delimiter=',')
-            np.savetxt(data_folder / "Normalized/OutputPushoverShear.csv", NormOutPushShear, delimiter=',')
+            if pushover:
+                np.savetxt(data_folder / "Normalized/InputPushoverDisplacement.csv", NormInDisp, delimiter=',')
+                np.savetxt(data_folder / "Normalized/OutputPushoverShear.csv", NormOutShear, delimiter=',')
+            else:
+                np.savetxt(data_folder / "Normalized/InputCyclicDisplacement.csv", NormInDisp, delimiter=',')
+                np.savetxt(data_folder / "Normalized/OutputCyclicShear.csv", NormOutShear, delimiter=',')
 
-        # print('InputParameters Shape = ', InParams.shape)
-        # print('InputDisplacement Shape = ', InDisp.shape)
-        return (NormInParams, NormInDisp, NormOutCycShear, NormOutPushShear), \
-               (param_scaler, disp_scaler, cyclic_scaler, pushover_scaler)
+        print('InputParameters Shape = ', InParams.shape)
+        print('InputDisplacement Shape = ', InDisp.shape)
+        return (NormInParams, NormInDisp, NormOutShear), \
+            (param_scaler, disp_scaler, shear_scaler)
 
     else:
         # print("Raw Data Loaded")
-        return InParams, InDisp, OutCycShear, OutPushShear
+        return InParams, InDisp, OutShear

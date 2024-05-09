@@ -5,6 +5,7 @@ from keras.layers import Dense, Input, concatenate, Flatten, Conv1D, MaxPooling1
 from keras.models import Model
 from keras.optimizers import Adam, SGD
 from keras import backend as K
+from keras.regularizers import l2
 
 from RCWall_DataProcessing import *
 
@@ -17,21 +18,22 @@ def r_square(y_true, y_pred):
 
 
 # Define the number of sample to be used
-batch_size = 50000  # 3404
+batch_size = 10000  # 3404
 num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
-sequence_length = 500
+sequence_length = 499
 parameters_length = 10
 num_features_input_displacement = 1
 num_features_input_parameters = 10
+pushover = False
 
-returned_data, returned_scaler = read_data(batch_size, sequence_length, normalize_data=True, save_normalized_data=False, smoothed_data=False)
-InParams, InDisp, OutCycShear = returned_data
-param_scaler, disp_scaler, cyclic_scaler = returned_scaler
+returned_data, returned_scaler = read_data(batch_size, sequence_length, normalize_data=True, save_normalized_data=False, pushover=pushover)
+InParams, InDisp, OutShear = returned_data
+param_scaler, disp_scaler, shear_scaler = returned_scaler
 
 # ---------------------- Split Data -------------------------------
 # Split data into training, validation, and testing sets (X: Inputs & Y: Outputs)
 X_param_train, X_param_test, X_disp_train, X_disp_test, Y_shear_train, Y_shear_test = train_test_split(
-    InParams, InDisp, OutCycShear, test_size=0.15, random_state=42)
+    InParams, InDisp, OutShear, test_size=0.20, random_state=42)
 
 # ---------------------- NN Model Building -------------------------
 # Build the neural network model using functional API
@@ -52,11 +54,11 @@ lstm_decoder = LSTM(200, return_sequences=True, activation='tanh')(encoded_seque
 decoded_sequence = LSTM(num_features_input_displacement, return_sequences=True, activation='tanh')(lstm_decoder)
 
 # Dense layer with 100 units
-dense1 = Dense(200, activation='relu')(decoded_sequence)
+dense1 = Dense(200, activation='tanh', kernel_regularizer=l2(0.001))(decoded_sequence)
 dropout1 = Dropout(0.2)(dense1)
 
 # Dense layer with 100 units
-dense2 = Dense(100, activation='relu')(dropout1)
+dense2 = Dense(100, activation='tanh', kernel_regularizer=l2(0.001))(dropout1)
 dropout2 = Dropout(0.2)(dense2)
 
 # ---------------------- Output layer --------------------------------------------
@@ -67,9 +69,9 @@ model = Model(inputs=[parameters_input, displacement_input], outputs=output_shea
 
 # ---------------------- Compile the model -----------------------------------------
 learning_rate = 0.001
-epochs = 600
-batch_size = 64
-patience = 30
+epochs = 50
+batch_size = 32
+patience = 10
 
 # Define Adam and SGD optimizers
 adam_optimizer = Adam(learning_rate)
@@ -101,8 +103,8 @@ history = model.fit(
     callbacks=[early_stopping])  # checkpoint_callback or early_stopping
 
 # ---------------------- Save the model ---------------------------------------------
-# model.save("DNN_Models/DNN_LSTM-AE(CYCLIC)")  # Save the model after training
-model.save("DNN_Models/DNN_LSTM-AE(PUSHOVER)")  # Save the model after training
+model.save("DNN_Models/DNN_LSTM-AE(CYCLIC)test")  # Save the model after training
+# model.save("DNN_Models/DNN_LSTM-AE(PUSHOVER)")  # Save the model after training
 
 # ---------------------- Plot Accuracy and Loss ----------------------------------------
 # Find the epoch at which the best performance occurred
@@ -178,9 +180,9 @@ for i in range(test_index):
 
 new_input_parameters = denormalize(new_input_parameters, param_scaler, sequence=False)
 new_input_displacement = denormalize(new_input_displacement, disp_scaler, sequence=True)
-real_shear = denormalize(real_shear, cyclic_scaler, sequence=True)
+real_shear = denormalize(real_shear, shear_scaler, sequence=True)
 
-predicted_shear = denormalize(predicted_shear, cyclic_scaler, sequence=True)
+predicted_shear = denormalize(predicted_shear, shear_scaler, sequence=True)
 
 # Plot the predicted displacement
 plt.figure(figsize=(10, 6))

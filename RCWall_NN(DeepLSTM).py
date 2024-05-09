@@ -1,10 +1,11 @@
 import keras.callbacks
 import matplotlib.pyplot as plt
-from keras import backend as K
+from keras import backend as K, regularizers
 from keras.layers import LSTM, Dense, Input, concatenate, Flatten, Bidirectional, Dropout, Activation, RepeatVector
 from keras.metrics import MeanAbsoluteError, MeanSquaredError, RootMeanSquaredError
 from keras.models import Model
 from keras.optimizers import Adam, SGD
+from keras.regularizers import l2
 
 from RCWall_DataProcessing import *
 
@@ -17,21 +18,22 @@ def r_square(y_true, y_pred):
 
 
 # Define the number of sample to be used
-batch_size = 50000  # 3404
+batch_size = 300000  # 3404
 num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
-sequence_length = 500
+sequence_length = 499
 parameters_length = 10
 num_features_input_displacement = 1
 num_features_input_parameters = 10
+pushover = False
 
-returned_data, returned_scaler = read_data(batch_size, sequence_length, normalize_data=True, save_normalized_data=False, smoothed_data=False)
-InParams, InDisp, OutCycShear = returned_data
-param_scaler, disp_scaler, cyclic_scaler = returned_scaler
+returned_data, returned_scaler = read_data(batch_size, sequence_length, normalize_data=True, save_normalized_data=False, pushover=pushover)
+InParams, InDisp, OutShear = returned_data
+param_scaler, disp_scaler, shear_scaler = returned_scaler
 
 # ---------------------- Split Data -------------------------------
 # Split data into training, validation, and testing sets (X: Inputs & Y: Outputs)
 X_param_train, X_param_test, X_disp_train, X_disp_test, Y_shear_train, Y_shear_test = train_test_split(
-    InParams, InDisp, OutCycShear, test_size=0.15, random_state=42)
+    InParams, InDisp, OutShear, test_size=0.20, random_state=42)
 
 # ---------------------- NN Model Building -------------------------
 # Build the neural network model using functional API
@@ -41,21 +43,22 @@ displacement_input = Input(shape=(None, num_features_input_displacement), name='
 distributed_parameters = RepeatVector(sequence_length)(parameters_input)
 
 concatenated_tensor = concatenate([displacement_input, distributed_parameters], axis=-1)
+print("concatenated_tensor = ", concatenated_tensor.shape)
 
 # LSTM layer with return_sequences=True
-lstm1 = Bidirectional(LSTM(200, return_sequences=True, stateful=False))(concatenated_tensor)
+lstm1 = LSTM(200, return_sequences=True, stateful=False)(concatenated_tensor)
 activation1 = Activation('tanh')(lstm1)
 
 # LSTM layer with return_sequences=True
-lstm2 = Bidirectional(LSTM(200, return_sequences=True, stateful=False))(activation1)
+lstm2 = LSTM(200, return_sequences=True, stateful=False)(activation1)
 activation2 = Activation('tanh')(lstm2)
 
 # Dense layer with 100 units
-dense1 = Dense(200)(activation2)
+dense1 = Dense(100, kernel_regularizer=l2(0.01))(activation2)
 dropout1 = Dropout(0.2)(dense1)
 
 # Dense layer with 100 units
-dense2 = Dense(100)(dropout1)
+dense2 = Dense(100, kernel_regularizer=l2(0.01))(dropout1)
 dropout2 = Dropout(0.2)(dense2)
 
 # ---------------------- Output layer --------------------------------------------
@@ -66,9 +69,9 @@ model = Model(inputs=[parameters_input, displacement_input], outputs=output_shea
 
 # ---------------------- Compile the model -----------------------------------------
 learning_rate = 0.001
-epochs = 600
-batch_size = 64
-patience = 30
+epochs = 50
+batch_size = 32
+patience = 10
 
 # Define Adam and SGD optimizers
 adam_optimizer = Adam(learning_rate)
@@ -97,11 +100,11 @@ history = model.fit(
     epochs=epochs,
     batch_size=batch_size,
     validation_split=0.20,
-    callbacks=[early_stopping]  # checkpoint_callback or early_stopping
-)
+    callbacks=[early_stopping])  # checkpoint_callback or early_stopping
+
 # ---------------------- Save the model ---------------------------------------------
 # model.save("DNN_Models/DNN_Bi-LSTM(CYCLIC)")  # Save the model after training
-model.save("DNN_Models/DNN_Bi-LSTM(PUSHOVER)")  # Save the model after training
+model.save("DNN_Models/DNN_Bi-LSTM(PUSHOVER)test")  # Save the model after training
 
 # ---------------------- Plot Accuracy and Loss ----------------------------------------
 # Find the epoch at which the best performance occurred
@@ -175,8 +178,8 @@ for i in range(test_index):
 
 new_input_parameters = denormalize(new_input_parameters, param_scaler, sequence=False)
 new_input_displacement = denormalize(new_input_displacement, disp_scaler, sequence=True)
-real_shear = denormalize(real_shear, cyclic_scaler, sequence=True)
-predicted_shear = denormalize(predicted_shear, cyclic_scaler, sequence=True)
+real_shear = denormalize(real_shear, shear_scaler, sequence=True)
+predicted_shear = denormalize(predicted_shear, shear_scaler, sequence=True)
 
 # Plot the predicted displacement
 plt.figure(figsize=(10, 6))
