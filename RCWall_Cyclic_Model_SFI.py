@@ -1,13 +1,11 @@
 import math
 import time
-
 import matplotlib.pyplot as plt
 import numpy as np
 import openseespy.opensees as ops
 # import vfo.vfo as vfo
 # import opsvis as opsv
 import NewGeneratePeaks
-
 from Units import *
 
 
@@ -238,7 +236,6 @@ def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, eleH=16, 
     print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 1)  # Web (unconfined concrete)
     print('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, etC, rt, xcrp, '-GapClose', 1)  # BE (confined concrete)
 
-
     # -------------------------- Concrete7 model --------------------------------------------
     # ops.uniaxialMaterial('Concrete07', concWeb, fcU, ecU, EcU, ftU, etU, xpU, xnU, rU)  # Web (unconfined concrete)
     # ops.uniaxialMaterial('Concrete07', concBE, fcC, ecC, EcC, ftC, etC, xpC, xnC, rC)  # BE (confined concrete)
@@ -419,7 +416,6 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         if printProgression:
             print(f'\033[92m InputDisplacement {j} = {DisplacementStep[j]}\033[0m')
             print(f'\033[91mOutputDisplacement {j} = {dispData[j + 1]}\033[0m')
-
 
     # if printProgression:
     #     toc = time.time()

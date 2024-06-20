@@ -3,8 +3,8 @@ import time
 from Units import *
 import matplotlib.pyplot as plt
 import RCWall_Cyclic_Model as rcmodel
-import RCWall_Cyclic_Model_simple as rcmodel
-# import RCWall_Cyclic_Model_SFI as rcmodel
+# import RCWall_Cyclic_Model_simple as rcmodel
+import RCWall_Cyclic_Model_SFI as rcmodel
 import openseespy.opensees as ops
 from GenerateCyclicLoading import *
 
@@ -1028,10 +1028,10 @@ def Kong_1():
     return tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadcoef, DisplacementStep
 
 # ------- Select Model for Validation -----------------------------------------------------------------------------------------------
-# validation_model = Thomsen_and_Wallace_RW2()
-# validation_model = Thomsen_and_Wallace_RW1()
-# validation_model = Tran_and_Wallace_A15P10S78()
-validation_model = Dazio_WSH2()
+validation_model = Thomsen_and_Wallace_RW2()
+validation_model = Thomsen_and_Wallace_RW1()
+validation_model = Tran_and_Wallace_A15P10S78()
+# validation_model = Dazio_WSH2()
 # validation_model = Dazio_WSH3()
 # validation_model = Greifenhagen_M3()
 # validation_model = Lu_SW11()
@@ -1063,9 +1063,9 @@ max_displacement = max(DisplacementStep)
 DispIncr = max_displacement / 30
 
 #  ---------------- RUN CYCLIC ANALYSIS ---------------------------------------------------------------
-# rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff)
-# rcmodel.run_gravity(printProgression=False)
-# [x, y] = rcmodel.run_cyclic(DisplacementStep, plotResults=False, printProgression=True, recordData=False)
+rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff)
+rcmodel.run_gravity(printProgression=False)
+[x, y] = rcmodel.run_cyclic(DisplacementStep, plotResults=False, printProgression=True, recordData=False)
 # # Find the index of the maximum y value
 # max_y_index = np.argmax(y)
 # # Get the corresponding x value
@@ -1077,9 +1077,9 @@ DispIncr = max_displacement / 30
 # #
 
 # ---------------- RUN PUSHOVER ANALYSIS ---------------------------------------------------------------
-rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff)
-rcmodel.run_gravity(printProgression=False)
-[x, y] = rcmodel.run_pushover(MaxDisp=max_displacement, dispIncr=DispIncr, plotResults=False, printProgression=True, recordData=False)
+# rcmodel.build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff)
+# rcmodel.run_gravity(printProgression=False)
+# [x, y] = rcmodel.run_pushover(MaxDisp=max_displacement, dispIncr=DispIncr, plotResults=False, printProgression=True, recordData=False)
 # Find the index of the maximum y value
 # max_y_index = np.argmax(y)
 # # Get the corresponding x value
