@@ -4,6 +4,17 @@ from keras import backend as K
 from keras.saving.save import load_model
 from GenerateCyclicLoading import *
 from RCWall_DataProcessing import *
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from scipy import interpolate
+from scipy.stats import pearsonr
+
+
+def calculate_metrics(target, output):
+    mse = mean_squared_error(target, output)
+    mae = mean_absolute_error(target, output)
+    # r2 = r_square(target, output)
+    R, p = pearsonr(target, output)
+    return mse, mae, R
 
 
 # Define R2 metric
@@ -15,17 +26,30 @@ def r_square(y_true, y_pred):
 
 def plotting(x_data, y_data, x_label, y_label, title, sign, save_fig=False, plotValidation=False):
     plt.rcParams.update({'font.size': 14, "font.family": ["Times New Roman", "Cambria"]})
+
     # Plot Force vs. Displacement
     plt.figure(figsize=(4 * 1.1, 3 * 1.25))
     plt.subplots_adjust(top=0.918, bottom=0.139, left=0.194, right=0.979, hspace=0.2, wspace=0.185)
+
     # Read test output data to plot
-    plt.plot(x_data, y_data, color='red', linewidth=1.2, label=f'DNN prediction')
+    plt.plot(x_data[4:], y_data[4:], color='red', linewidth=1.2, label=f'DNN prediction')
     if plotValidation:
         Test = np.loadtxt(f"DataValidation/{title}.txt", delimiter="\t", unpack="False")
         plt.plot(Test[0, :], Test[1, :], color="black", linewidth=0.8, linestyle="--", label=f'Reference {sign}')
-        print("Max real_shear", np.max(Test[1]))
+        print(len(Test[1]))
+        f = interpolate.interp1d(np.arange(len(Test[1])), Test[1], kind="linear")
+        new_x = np.linspace(0, len(Test[1]) - 1, len(y_data[4:]))
+        reshaped_Test = f(new_x)
+        print(len(reshaped_Test))
+        # print("Max real_shear", np.max(Test[1]))
+        # print("Max predicted_shear", np.max(predicted_shear))
+        mse, mae, r = calculate_metrics(reshaped_Test, y_data[4:])
+        ax = plt.gca()  # Get current axes
+        plt.text(0.99, 0.03, f"MSE: {mse:.3f}, MAE: {mae:.3f}, R: {r:.3f}", transform=ax.transAxes, ha='right', va='bottom', fontsize=9)
+
     plt.grid(linestyle='dotted')
     font_settings = {'fontname': 'Times New Roman', 'fontstyle': 'italic', 'size': 12}
+
     plt.xlabel('Displacement (mm)', fontdict=font_settings)
     plt.ylabel('Base Shear (kN)', fontdict=font_settings, labelpad=-1)
     plt.axhline(0, color='black', linewidth=0.4)
@@ -136,7 +160,7 @@ def refE():
     return parameters_input, max_displacement, name, sign
 
 
-for ref_func in [refF]:
+for ref_func in [refD]:
     parameters_input, max_displacement, name, sign = ref_func()
     displacement_input = np.linspace(0, max_displacement, 500).reshape(1, -1)[:, :499]
 
@@ -152,22 +176,23 @@ for ref_func in [refF]:
     DisplacementStep = denormalize(displacement_input, scaler_filename=disp_pushover_scaler, sequence=True)
     predicted_shear = denormalize(predicted_shear, scaler_filename=shear_pushover_scaler, sequence=True)
 
-    plotting(DisplacementStep[-1, 0:499], predicted_shear[-1, 0:499], 'Displacement (mm)', 'Base Shear (kN)', name, sign, save_fig=True, plotValidation=True)
-    print("Max predicted_shear", np.max(predicted_shear))
 
-'''
+    plotting(DisplacementStep[-1, 0:499], predicted_shear[-1, 0:499], 'Displacement (mm)', 'Base Shear (kN)', name, sign, save_fig=False, plotValidation=True)
+
+
+# '''
 # **********************************************************************
 # TESTING DATASET
 # **********************************************************************
 # Define the number of sample to be used
 batch_size = 200000  # 3404
 num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
-sequence_length = 500
+sequence_length = 499
 parameters_length = 10
 num_features_input_displacement = 1
 num_features_input_parameters = 10
 
-returned_data, returned_scaler = read_data(batch_size, sequence_length, normalize_data=True, save_normalized_data=False, smoothed_data=False, pushover=True)
+returned_data, returned_scaler = read_data(batch_size, sequence_length, normalize_data=True, save_normalized_data=False, pushover=True)
 InParams, InDisp, OutShear = returned_data
 
 # ---------------------- Split Data -------------------------------

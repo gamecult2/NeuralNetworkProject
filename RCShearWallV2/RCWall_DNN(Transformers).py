@@ -45,7 +45,7 @@ def get_positional_encoding(sequence_length, embedding_dim):
 
 
 # Define the number of sample to be used
-batch_size = 3000  # 3404
+batch_size = 500  # 3404
 num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
 sequence_length = 499
 parameters_length = 10
@@ -69,19 +69,20 @@ displacement_input = Input(shape=(None, num_features_input_displacement), name='
 
 distributed_parameters = RepeatVector(sequence_length)(parameters_input)
 
+concatenated_tensor = concatenate([displacement_input, distributed_parameters], axis=-1)
+print("concatenated_tensor = ", concatenated_tensor.shape)
+
 # Embedding layer
 embedding_dim = 64  # You can adjust this dimension
-embedding_layer = Dense(embedding_dim, activation='relu')(displacement_input)
+embedding_layer = Dense(64, activation='relu')(displacement_input)  # embedding_dim = 64  # You can adjust this dimension
 
 # Apply positional encoding
 pos_encoding = get_positional_encoding(sequence_length, embedding_dim)
 embedded_input = embedding_layer + pos_encoding
 
-concatenated_tensor = concatenate([displacement_input, distributed_parameters], axis=-1)
-print("concatenated_tensor = ", concatenated_tensor.shape)
 
 # Apply transformer block
-transformer_outputs = [transformer_block(concatenated_tensor, num_heads=64, ff_dim=200) for _ in range(8)]
+transformer_outputs = [transformer_block(concatenated_tensor, num_heads=8, ff_dim=200) for _ in range(8)]
 
 # Concatenate the outputs of the 8 transformer blocks
 concatenated_transformers = concatenate(transformer_outputs, axis=-1)

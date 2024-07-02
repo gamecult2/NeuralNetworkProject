@@ -9,7 +9,7 @@ import csv
 # ***************************************************************************************************
 # Define the parameter ranges
 minParameters = [
-    80.0 * mm,  # (tw) Minimum thickness
+    100.0 * mm,  # (tw) Minimum thickness
     1.5 * m,  # (hw) wall height
     None,  # (lw) wall length (min t*6)
     0.08,  # (lbe) BE length (as a percentage of wall length)
