@@ -4,6 +4,26 @@ from tkinter import ttk
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from keras import backend as K
+from keras.saving.save import load_model
+from GenerateCyclicLoading import *
+from RCWall_DataProcessing import *
+
+
+# Allocate space for Bidirectional(LSTM)
+os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+
+# Activate the GPU
+tf.config.list_physical_devices(device_type=None)
+physical_devices = tf.config.list_physical_devices('GPU')
+print("Num GPUs:", len(physical_devices))
+
+
+# Define R2 metric
+def r_square(y_true, y_pred):
+    SS_res = K.sum(K.square(y_true - y_pred))
+    SS_tot = K.sum(K.square(y_true - K.mean(y_true)))
+    return 1 - SS_res / (SS_tot + K.epsilon())
 
 
 class ShearWallAnalysisApp(tk.Tk):
@@ -12,20 +32,31 @@ class ShearWallAnalysisApp(tk.Tk):
 
         self.title("RC Shear Wall Analysis with DNN")
         self.geometry("1200x800")
+        # Data Folder Path
+        self.data_folder = Path("../RCWall_Data/Dataset_full")
+
+        # Loaded Model Information
+        self.loaded_model = load_model("../DNN_Models/DNN_LSTM-AE(CYCLIC)300k", custom_objects={'r_square': r_square})
+        self.model_info = 'LSTM-AE'  # Use 'self.model_info' for clarity
+
+        # Scaler Paths
+        self.param_scaler = self.data_folder / 'Scaler/param_scaler.joblib'
+        self.disp_cyclic_scaler = self.data_folder / 'Scaler/disp_cyclic_scaler.joblib'
+        self.shear_cyclic_scaler = self.data_folder / 'Scaler/shear_cyclic_scaler.joblib'
 
         # Variables
         self.load_type = tk.StringVar(value="RC")
         self.parameters = {
-            "Tw (mm)": tk.DoubleVar(value=200),
-            "Lw (mm)": tk.DoubleVar(value=2830),
-            "Hw (mm)": tk.DoubleVar(value=4500),
-            "Lbe (mm)": tk.DoubleVar(value=250),
-            "fc (MPa)": tk.DoubleVar(value=40),
-            "fyb (MPa)": tk.DoubleVar(value=510),
-            "fyw (MPa)": tk.DoubleVar(value=510),
-            "rouYb (%)": tk.DoubleVar(value=0.029),
-            "rouYw (%)": tk.DoubleVar(value=0.003),
-            "loadcoef": tk.DoubleVar(value=0.1)
+            "Tw (mm)": tk.DoubleVar(value=102),
+            "Hw (mm)": tk.DoubleVar(value=3810),
+            "Lw (mm)": tk.DoubleVar(value=1220),
+            "Lbe (mm)": tk.DoubleVar(value=190),
+            "fc (MPa)": tk.DoubleVar(value=41.75),
+            "fyb (MPa)": tk.DoubleVar(value=434),
+            "fyw (MPa)": tk.DoubleVar(value=448),
+            "rouYb (%)": tk.DoubleVar(value=0.0294*100),
+            "rouYw (%)": tk.DoubleVar(value=0.003*100),
+            "loadcoef": tk.DoubleVar(value=0.092)
         }
         self.cyclic_params = {
             "n": tk.IntVar(value=6),
@@ -33,6 +64,7 @@ class ShearWallAnalysisApp(tk.Tk):
             "D0": tk.DoubleVar(value=5),
             "Dm": tk.DoubleVar(value=80)
         }
+
 
         # GUI Setup
         self.setup_gui()
@@ -62,8 +94,8 @@ class ShearWallAnalysisApp(tk.Tk):
         # Structural Design Parameters with Sliders
         param_ranges = {
             "Tw (mm)": (0, 400),
-            "Lw (mm)": (540, 4000),
             "Hw (mm)": (1000, 6000),
+            "Lw (mm)": (540, 4000),
             "Lbe (mm)": (54, 500),
             "fc (MPa)": (20, 70),
             "fyb (MPa)": (275, 650),
@@ -176,20 +208,42 @@ class ShearWallAnalysisApp(tk.Tk):
 
     def plot_hysteresis_loop(self, ax):
         # Extract parameters
-        Tw = self.parameters["Tw (mm)"].get()
-        Lw = self.parameters["Lw (mm)"].get()
-        Hw = self.parameters["Hw (mm)"].get()
-        Lbe = self.parameters["Lbe (mm)"].get()
+        tw = self.parameters["Tw (mm)"].get()
+        hw = self.parameters["Hw (mm)"].get()
+        lw = self.parameters["Lw (mm)"].get()
+        lbe = self.parameters["Lbe (mm)"].get()
         fc = self.parameters["fc (MPa)"].get()
         fyb = self.parameters["fyb (MPa)"].get()
         fyw = self.parameters["fyw (MPa)"].get()
         rouYb = self.parameters["rouYb (%)"].get()
         rouYw = self.parameters["rouYw (%)"].get()
-        loadcoef = self.parameters["loadcoef"].get()
+        loadCoeff = self.parameters["loadcoef"].get()
+
         displacement = self.generate_cyclic_loading()
 
+        # Overall parameters
+        parameters_input = np.array((tw, hw, lw, lbe, fc, fyb, fyw, rouYb/100, rouYw/100, loadCoeff)).reshape(1, -1)
+        print("\033[92m USED PARAMETERS -> (Characteristic):", parameters_input)
+
+        displacement_input = displacement.reshape(1, -1)[:, 1:500 + 1]
+
+        # ------- Normalize New data ------------------------------------------
+        parameters_input = normalize(parameters_input, scaler_filename=self.param_scaler, sequence=False, fit=False)
+        displacement_input = normalize(displacement_input, scaler_filename=self.disp_cyclic_scaler, sequence=True, fit=False)
+
+        # ------- Predict New data --------------------------------------------
+        predicted_shear = self.loaded_model.predict([parameters_input, displacement_input])
+
+        # ------- Denormalize New data ------------------------------------------
+        parameter_values = denormalize(parameters_input, scaler_filename=self.param_scaler, sequence=False)
+        DisplacementStep = denormalize(displacement_input, scaler_filename=self.disp_cyclic_scaler, sequence=True)
+        predicted_shear = denormalize(predicted_shear, scaler_filename=self.shear_cyclic_scaler, sequence=True)
+        predicted_shear -= 45
+
         # Generate Hysteresis Loop
-        ax.plot(displacement, displacement[::-1], label="DNN Results")
+        Test = np.loadtxt(f"../DataValidation/Thomsen_and_Wallace_RW2.txt", delimiter="\t", unpack="False")
+        ax.plot(DisplacementStep[-1, 5:499], predicted_shear[-1, 5:499], label="DNN Results")
+        ax.plot(Test[0, :], Test[1, :], color="black", linewidth=1.0, linestyle="--", label=f'Reference')
         ax.set_xlabel("Displacement (mm)")
         ax.set_ylabel("Base Shear (kN)")
         ax.legend()

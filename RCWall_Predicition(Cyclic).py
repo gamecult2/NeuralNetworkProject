@@ -133,7 +133,7 @@ for ref_func in [reftest, ref4, ref5, ref55, ref6, ref7, ref8]:
     displacement_input = generate_increasing_cyclic_loading_with_repetition(num_cycles=num_cycles, max_displacement=max_displacement, num_points=num_points, repetition_cycles=repetition_cycles).reshape(1, -1)[:, 1:sequence_length+1]
     # displacement_input = generate_increasing_cyclic_loading(num_cycles=num_cycles, initial_displacement=initial_displacement, max_displacement=max_displacement, num_points=num_points, repetition_cycles=repetition_cycles).reshape(1, -1)[:, :500]
     # displacement_input = generate_increasing_cyclic_loading_with_exponential_growth(num_cycles=num_cycles, initial_displacement=initial_displacement, max_displacement=max_displacement, num_points=num_points, repetition_cycles=repetition_cycles).reshape(1, -1)[:, 1:sequence_length]
-
+    print(parameters_input)
     # ------- Normalize New data ------------------------------------------
     parameters_input = normalize(parameters_input, scaler_filename=param_scaler, sequence=False, fit=False)
     displacement_input = normalize(displacement_input, scaler_filename=disp_cyclic_scaler, sequence=True, fit=False)
