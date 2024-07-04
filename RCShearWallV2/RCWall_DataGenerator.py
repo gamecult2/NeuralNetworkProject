@@ -3,11 +3,11 @@ from Units import *
 import random
 import math
 import csv
-import gc
 
 # import RCWall_Model as rcmodel
 # import RCWall_Model_simple as rcmodel
 import RCWall_Model_SFI as rcmodel
+
 from RCWall_ParametersRange import *
 from GenerateCyclicLoading import *
 
@@ -19,7 +19,6 @@ random.seed(45)
 # Define the number of samples to be generated
 num_samples = 1000000
 sequence_length = 501
-batch_size = 10  # Number of samples to process before writing to CSV
 
 # Open the CSV file for writing
 with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
@@ -27,9 +26,9 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
     converged = 0
     unconverged = 0
     batch_data = []
-    starting_sample_index = 108
+    starting_sample_index = 0
     for sample_index in range(starting_sample_index, num_samples):
-        print(f"======================================== RUNNING SAMPLE \033[92mN° {sample_index}\033[0m ========================================")
+        print(f"========================================= RUNNING SAMPLE \033[92mN° {sample_index}\033[0m =========================================")
         # ***************************************************************************************************
         #           GENERATE PARAMETERS FOR EACH SAMPLE
         # ***************************************************************************************************
@@ -50,17 +49,17 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
 
         # Generate cyclic load parameters
         # initial_displacement = int(random.uniform(minLoading[1], maxLoading[1]))
-        # max_displacement = int(random.uniform(minLoading[1], maxLoading[1]))
+        # max_displacement = int(random.uniform(minLoading[2], maxLoading[2]))
         num_cycles = int(random.uniform(minLoading[0], maxLoading[0]))
         max_displacement = int(random.uniform(hw * 0.005, hw * 0.040))
         repetition_cycles = int(random.uniform(minLoading[2], maxLoading[2]))
         num_points = math.ceil(sequence_length / (num_cycles * repetition_cycles))  # Ensure at least 500 points in total.
 
         # DisplacementStep = list(generate_increasing_cyclic_loading(num_cycles, initial_displacement, max_displacement, num_points, repetition_cycles))
-        DisplacementStep = list(generate_increasing_cyclic_loading_with_repetition(num_cycles,  max_displacement, num_points, repetition_cycles))[:sequence_length]  # Limit to 500
+        DisplacementStep = list(generate_increasing_cyclic_loading_with_repetition(num_cycles, max_displacement, num_points, repetition_cycles))[:sequence_length]  # Limit to 500
 
         # Generate pushover load parameters
-        DispIncr = max_displacement / sequence_length  # limit displacement for Pushover analysis to 1000 points
+        DispIncr = max_displacement / sequence_length  # limit displacement for Pushover analysis to 500 points
 
         # Overall parameters
         parameter_values = [tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff]
@@ -69,19 +68,18 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
 
         print(f"\033[92m -> (Characteristic): {parameter_values}")
 
-
         # ***************************************************************************************************
         #           RUN ANALYSIS (CYCLIC + PUSHOVER)
         # ***************************************************************************************************
         # CYCLIC ANALYSIS
-        print(f"\033[92m -> (Cyclic Loading): {cyclic_values}\033[0m --> DisplacementStep: {len(DisplacementStep)}")
+        print(f"\033[92m -> (Cyclic Analysis): {cyclic_values}\033[0m --> DisplacementStep: {len(DisplacementStep)}")
         rcmodel.build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, printProgression=False)
         rcmodel.run_gravity(printProgression=False)
         y1 = rcmodel.run_cyclic2(DisplacementStep, plotResults=False, printProgression=False, recordData=False)
         rcmodel.reset_analysis()
 
         # PUSHOVER ANALYSIS
-        # print("\033[92m Running Pushover Analysis :", pushover_values, "\033[0m")
+        # print(f"\033[92m -> (Pushover Analysis): {pushover_values}\033[0m")
         # rcmodel.build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, printProgression=False)
         # rcmodel.run_gravity(printProgression=False)
         # x2, y2 = rcmodel.run_pushover(max_displacement, DispIncr, plotResults=False, printProgression=False, recordData=False)
@@ -90,34 +88,17 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
         # ***************************************************************************************************
         #           SAVE DATA (CYCLIC + PUSHOVER)
         # ***************************************************************************************************
-        # if 980 <= len(x1) <= 1020:
-        # y2_has_negative = np.any(y2 < 0)  # Check if y2 has any negative number
-
-        if len(y1) == sequence_length:  #  and len(x2) == sequence_length and not y2_has_negative:
+        if len(y1) == sequence_length:  # and len(x2) == sequence_length and not y2_has_negative:
             converged += 1
-            # Store batch data
-            # batch_data.append([
-            #     ['InputParameters_values'] + parameter_values,
-            #     ['OutputCyclicDisplacement_values'] + DisplacementStep[:-1],
-            #     ['OutputCyclicShear_values'] + np.concatenate((y1[:1], y1[2:])).astype(str).tolist()  # Skip the second element
-            # ])
-            writer.writerow(['InputParameters_values'] + parameter_values + cyclic_values)
-            writer.writerow(['OutputCyclicDisplacement_values'] + DisplacementStep[:-1])
-            writer.writerow(['OutputCyclicShear_values'] + y1.astype(str).tolist())
+            writer.writerow(parameter_values)
+            writer.writerow(DisplacementStep[:-1])
+            writer.writerow(np.concatenate((y1[:1], y1[2:])))
 
-            # writer.writerow(['OutputCyclicShear_values'] + np.concatenate((y1[:1], y1[2:])).astype(str).tolist())  # Skip the second element
-            # writer.writerow(['OutputPushoverDisplacement_values'] + x2.astype(str).tolist())  # Displacement Response of the RC Shear Wall
-            # writer.writerow(['OutputPushoverShear_values'] + y2.astype(str).tolist())  # Pushover Response of the RC Shear Wall
+            # writer.writerow(np.concatenate((y1[:1], y1[2:])).astype(str).tolist())  # Skip the second element
+            # writer.writerow(x2)  # Displacement Response of the RC Shear Wall
+            # writer.writerow(y2)  # Pushover Response of the RC Shear Wall
         else:
             unconverged += 1
-        # Write batch data to CSV
-        # if len(batch_data) >= batch_size:
-        #     for data in batch_data:
-        #         for row in data:
-        #             writer.writerow(row)
-        #     batch_data.clear()
-        #     gc.collect()
 
         print(f'Converged == {converged} / Unconverged == {unconverged}')
         rcmodel.reset_analysis()
-

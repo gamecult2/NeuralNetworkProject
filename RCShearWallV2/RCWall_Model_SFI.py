@@ -271,7 +271,7 @@ def build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, l
 def run_gravity(steps=10, printProgression=True):
     if printProgression:
         print("RUNNING GRAVITY ANALYSIS")
-    ops.timeSeries('Linear', 1, '-factor', 1.0)  # create TimeSeries for gravity analysis
+    ops.timeSeries('Linear', 1, '-factor', 1.0)
     ops.pattern('Plain', 1, 1)
     ops.load(ControlNode, *[0.0, -Aload, 0.0])  # apply vertical load
     ops.constraints('Transformation')
@@ -461,8 +461,8 @@ def run_cyclic2(DisplacementStep, plotResults=True, printProgression=True, recor
     min_factor = 1e-06  # at most initial/1e6
     max_factor_increment = 1.5  # define how fast the factor can increase
     min_factor_increment = 1e-06  # define how fast the factor can decrease
-    max_iter = 5000
-    desired_iter = int(max_iter / 2)  # should be higher then the desired number of iterations
+    max_iter = 2500
+    desired_iter = int(max_iter / 2)  # should be higher than the desired number of iterations
 
     # -------------CYCLIC-----------------
     ops.timeSeries('Linear', 2, '-factor', 1.0)
@@ -539,8 +539,9 @@ def run_cyclic2(DisplacementStep, plotResults=True, printProgression=True, recor
             D0 = D1  # move to next step
 
         finishedSteps = j + 1
-        disp = ops.nodeDisp(ControlNode, 1)
+        # disp = ops.nodeDisp(ControlNode, 1)
         baseShear = -ops.getLoadFactor(2) / 1000 * RefLoad  # Convert to from N to kN
-        dispData[j + 1] = disp
+        # dispData[j + 1] = disp
         ShearData[j + 1] = baseShear
-    return [dispData[0:finishedSteps], -ShearData[0:finishedSteps]]
+        # return [dispData[0:finishedSteps], -ShearData[0:finishedSteps]]
+    return -ShearData[0:finishedSteps]
