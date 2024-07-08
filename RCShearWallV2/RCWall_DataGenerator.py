@@ -11,15 +11,15 @@ import RCWall_Model_SFI as rcmodel
 from RCWall_ParametersRange import *
 from GenerateCyclicLoading import *
 
-random.seed(45)
+random.seed(1)
 
 # ***************************************************************************************************
 #           DEFINE NUMBER OF SAMPLE TO GENERATE
 # ***************************************************************************************************
 # Define the number of samples to be generated
-num_samples = 1000000
+num_samples = 100
 sequence_length = 501
-
+batch_size = 10  # Define the batch size
 # Open the CSV file for writing
 with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
     writer = csv.writer(file)
@@ -77,7 +77,7 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
         rcmodel.run_gravity(printProgression=False)
         y1 = rcmodel.run_cyclic2(DisplacementStep, plotResults=False, printProgression=False, recordData=False)
         rcmodel.reset_analysis()
-
+        # y1 = list(range(501))
         # PUSHOVER ANALYSIS
         # print(f"\033[92m -> (Pushover Analysis): {pushover_values}\033[0m")
         # rcmodel.build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, printProgression=False)
@@ -90,9 +90,12 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
         # ***************************************************************************************************
         if len(y1) == sequence_length:  # and len(x2) == sequence_length and not y2_has_negative:
             converged += 1
-            writer.writerow(parameter_values)
-            writer.writerow(DisplacementStep[:-1])
-            writer.writerow(np.concatenate((y1[:1], y1[2:])))
+            # writer.writerow(parameter_values)
+            # writer.writerow(DisplacementStep[:-1])
+            # writer.writerow(np.concatenate((y1[:1], y1[2:])))
+            batch_data.append(parameter_values)
+            batch_data.append(DisplacementStep[:-1])
+            batch_data.append(np.concatenate((y1[:1], y1[2:])))
 
             # writer.writerow(np.concatenate((y1[:1], y1[2:])).astype(str).tolist())  # Skip the second element
             # writer.writerow(x2)  # Displacement Response of the RC Shear Wall
@@ -102,3 +105,9 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
 
         print(f'Converged == {converged} / Unconverged == {unconverged}')
         rcmodel.reset_analysis()
+
+        # Write data in batches
+        if (sample_index + 1) % batch_size == 0 or sample_index == num_samples - 1:
+          for row in batch_data:
+              writer.writerow(row)
+          batch_data = []  # Clear the batch data after writing
