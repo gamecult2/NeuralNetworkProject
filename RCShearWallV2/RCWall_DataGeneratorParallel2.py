@@ -3,8 +3,7 @@ import random
 import math
 import numpy as np
 import os
-import sys
-from multiprocessing import current_process
+from multiprocessing import Pool, cpu_count, current_process
 
 # Import RCWall_Model and functions
 import RCWall_Model_SFI as rcmodel
@@ -14,15 +13,14 @@ from GenerateCyclicLoading import generate_increasing_cyclic_loading_with_repeti
 # Global constants
 sequence_length = 501
 
-
-def generate_sample(instance_id, sample_index):
-    # Set the random seed using both instance_id and sample_index
-    random_seed = hash((instance_id, sample_index)) % (2 ** 32 - 1)
+def generate_sample(sample_index):
+    # Set a unique random seed for each sample
+    random_seed = random.randint(0, 2**32 - 1)
     random.seed(random_seed)
     np.random.seed(random_seed)
     worker_id = current_process().name
 
-    print(f"===================================== RUNNING SAMPLE \033[92mN° {sample_index}\033[0m in Core \033[92mN°{instance_id}\033[0m =====================================\n")
+    print(f"===================================== RUNNING SAMPLE \033[92mN° {sample_index}\033[0m  in Core \033[92mN°{worker_id}\033[0m =====================================\n")
 
     # Generate parameters
     tw = round(random.uniform(minParameters[0], maxParameters[0]))
@@ -59,37 +57,30 @@ def generate_sample(instance_id, sample_index):
 
     return None
 
-
-def write_sample_data(file_path, data):
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, 'a', newline='') as file:
+def write_sample_data(worker_id, data):
+    os.makedirs("RCWall_Data", exist_ok=True)
+    with open(f"RCWall_Data/Worker_{worker_id}_Data.csv", 'a', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(data[1])
         writer.writerow(data[2])
         writer.writerow(data[3])
 
-
-def process_samples(instance_id, start_index, end_index):
-    valid_samples = 0
-    file_path = f"RCWall_Data/Worker_{instance_id}_Data.csv"
-    for sample_index in range(start_index, end_index):
-        sample_result = generate_sample(instance_id, sample_index)
+def process_chunk(chunk):
+    valid_samples = []
+    for sample_index in chunk:
+        sample_result = generate_sample(sample_index)
         if sample_result is not None:
-            valid_samples += 1
-            write_sample_data(file_path, sample_result)
-    return valid_samples
-
+            valid_samples.append(sample_result)
+            write_sample_data(sample_result[0], sample_result)
+    return len(valid_samples)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python RCWall_DataGenerator.py <instance_id> <start_index> <end_index>")
-        sys.exit(1)
+    num_samples = 160
+    num_processes = cpu_count()
 
-    instance_id = int(sys.argv[1])
-    start_index = int(sys.argv[2])
-    end_index = int(sys.argv[3])
-    worker_id = f"Worker_{instance_id}"
+    with Pool(processes=num_processes) as pool:
+        chunks = np.array_split(range(num_samples), num_processes)
+        results = pool.map(process_chunk, chunks)
 
-    valid_samples_count = process_samples(instance_id, start_index, end_index)
-
-    print(f"Data generation complete for {worker_id}. Total valid samples generated: {valid_samples_count}")
+    total_valid_samples = sum(results)
+    print(f"Data generation complete. Total valid samples generated: {total_valid_samples}")

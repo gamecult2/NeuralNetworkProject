@@ -47,7 +47,7 @@ def RebarArea(RebarDiametermm):
     return a
 
 
-def build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, eleH=8, eleL=8, printProgression=True):
+def build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, eleH=10, eleL=8, printProgression=True):
     ops.wipe()
     ops.model('basic', '-ndm', 2, '-ndf', 3)  # Model of 2 dimensions, 3 dof per node
 
@@ -243,9 +243,9 @@ def build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, l
     MVLEM_width = [lbe if i in (0, n - 1) else elelweb for i in range(n)]
     MVLEM_mat = [matBE if i in (0, n - 1) else matWeb for i in range(n)]
 
-    MVLEM_rho = [rouYb if i in (0, n - 1) else rouYw for i in range(n)]
-    MVLEM_matConcrete = [concBE if i in (0, n - 1) else concWeb for i in range(n)]
-    MVLEM_matSteel = [sYb if i in (0, n - 1) else sYw for i in range(n)]
+    # MVLEM_rho = [rouYb if i in (0, n - 1) else rouYw for i in range(n)]
+    # MVLEM_matConcrete = [concBE if i in (0, n - 1) else concWeb for i in range(n)]
+    # MVLEM_matSteel = [sYb if i in (0, n - 1) else sYw for i in range(n)]
 
     for i in range(eleH):
         # ------------------ MVLEM ----------------------------------------------
@@ -457,7 +457,7 @@ def run_cyclic2(DisplacementStep, plotResults=True, printProgression=True, recor
         tic = time.time()
         print("RUNNING CYCLIC ANALYSIS")
     # define parameters for adaptive time-step
-    max_factor = 1.0  # 1.0 -> don't make it larger than initial time step
+    max_factor = 0.12  # 1.0 -> don't make it larger than initial time step
     min_factor = 1e-06  # at most initial/1e6
     max_factor_increment = 1.5  # define how fast the factor can increase
     min_factor_increment = 1e-06  # define how fast the factor can decrease
@@ -473,11 +473,12 @@ def run_cyclic2(DisplacementStep, plotResults=True, printProgression=True, recor
     ops.numberer('RCM')
     ops.system("BandGen")
     ops.test('NormDispIncr', 1e-6, desired_iter, 0)
-    ops.algorithm('KrylovNewton')
+    ops.algorithm('KrylovNewton')  # KrylovNewton
+    ops.analysis("Static")
 
     Nsteps = len(DisplacementStep)
     finishedSteps = 0
-    dispData = np.zeros(Nsteps + 1)
+    # dispData = np.zeros(Nsteps + 1)
     ShearData = np.zeros(Nsteps + 1)
     D0 = 0.0
     for j in range(Nsteps):
@@ -543,5 +544,5 @@ def run_cyclic2(DisplacementStep, plotResults=True, printProgression=True, recor
         baseShear = -ops.getLoadFactor(2) / 1000 * RefLoad  # Convert to from N to kN
         # dispData[j + 1] = disp
         ShearData[j + 1] = baseShear
-        # return [dispData[0:finishedSteps], -ShearData[0:finishedSteps]]
+    # return [dispData[0:finishedSteps], -ShearData[0:finishedSteps]]
     return -ShearData[0:finishedSteps]
