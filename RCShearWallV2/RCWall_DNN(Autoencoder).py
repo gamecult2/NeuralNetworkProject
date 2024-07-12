@@ -38,7 +38,9 @@ X_param_train, X_param_test, X_disp_train, X_disp_test, Y_shear_train, Y_shear_t
 # ---------------------- NN Model Building -------------------------
 # Build the neural network model using functional API
 parameters_input = Input(shape=(num_features_input_parameters,), name='parameters_input')
+print("parameters_input = ", parameters_input.shape)
 displacement_input = Input(shape=(None, num_features_input_displacement), name='displacement_input')
+print("displacement_input = ", displacement_input.shape)
 
 distributed_parameters = RepeatVector(sequence_length)(parameters_input)
 

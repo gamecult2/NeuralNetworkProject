@@ -3,6 +3,7 @@ from Units import *
 import random
 import math
 import csv
+import time
 
 # import RCWall_Model as rcmodel
 # import RCWall_Model_simple as rcmodel
@@ -75,7 +76,7 @@ with open("RCWall_Data/RCWall_Dataset_Full.csv", 'a', newline='') as file:
         print(f"\033[92m -> (Cyclic Analysis): {cyclic_values}\033[0m --> DisplacementStep: {len(DisplacementStep)}")
         rcmodel.build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, printProgression=False)
         rcmodel.run_gravity(printProgression=False)
-        y1 = rcmodel.run_cyclic2(DisplacementStep, plotResults=False, printProgression=False, recordData=False)
+        y1 = rcmodel.run_cyclic2(DisplacementStep, printProgression=False)
         rcmodel.reset_analysis()
         # y1 = list(range(501))
         # PUSHOVER ANALYSIS

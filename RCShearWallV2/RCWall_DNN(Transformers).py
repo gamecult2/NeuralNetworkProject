@@ -137,7 +137,7 @@ history = model.fit(
 
 # ---------------------- Save the model ---------------------------------------------
 # model.save("DNN_Models/DNN_Bi-LSTM(CYCLIC)")  # Save the model after training
-model.save("DNN_Models/DNN_Bi-LSTM(PUSHOVER)test")  # Save the model after training
+# model.save("DNN_Models/DNN_Bi-LSTM(PUSHOVER)test")  # Save the model after training
 
 # ---------------------- Plot Accuracy and Loss ----------------------------------------
 # Find the epoch at which the best performance occurred

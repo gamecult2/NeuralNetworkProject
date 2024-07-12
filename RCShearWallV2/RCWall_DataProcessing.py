@@ -38,8 +38,8 @@ def normalize(data, scaler=None, scaler_filename=None, range=(-1, 1), sequence=F
         if fit:
             data_scaled = scaler.fit_transform(data_reshaped)
             # Print the minimum and maximum values of the scaler
-            print("Min value of the scaler:", scaler.data_min_)
-            print("Max value of the scaler:", scaler.data_max_)
+            # print("Min value of the scaler:", scaler.data_min_)
+            # print("Max value of the scaler:", scaler.data_max_)
         else:
             data_scaled = scaler.transform(data_reshaped)
 
@@ -49,8 +49,8 @@ def normalize(data, scaler=None, scaler_filename=None, range=(-1, 1), sequence=F
         if fit:
             data_scaled = scaler.fit_transform(data)
             # Print the minimum and maximum values of the scaler
-            print("Min value of the scaler:", scaler.data_min_)
-            print("Max value of the scaler:", scaler.data_max_)
+            # print("Min value of the scaler:", scaler.data_min_)
+            # print("Max value of the scaler:", scaler.data_max_)
         else:
             data_scaled = scaler.transform(data)
 

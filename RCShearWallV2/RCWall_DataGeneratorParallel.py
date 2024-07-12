@@ -51,7 +51,7 @@ def generate_sample(instance_id, sample_index):
     # Run analysis
     rcmodel.build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, printProgression=False)
     rcmodel.run_gravity(printProgression=False)
-    y1 = rcmodel.run_cyclic2(DisplacementStep, plotResults=False, printProgression=False, recordData=False)
+    y1 = rcmodel.run_cyclic2(DisplacementStep, printProgression=False)
     rcmodel.reset_analysis()
 
     if len(y1) == sequence_length:

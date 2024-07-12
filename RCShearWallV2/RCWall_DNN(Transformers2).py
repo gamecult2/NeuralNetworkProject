@@ -45,7 +45,7 @@ def get_positional_encoding(sequence_length, embedding_dim):
 
 
 # Define the number of sample to be used
-batch_size = 500  # 3404
+batch_size = 37500  # 3404
 num_features = 1  # Number of columns in InputDisplacement curve (Just One Displacement Column with fixed Dt)
 sequence_length = 499
 parameters_length = 10
@@ -67,6 +67,7 @@ X_param_train, X_param_test, X_disp_train, X_disp_test, Y_shear_train, Y_shear_t
 parameters_input = Input(shape=(num_features_input_parameters,), name='parameters_input')
 displacement_input = Input(shape=(None, num_features_input_displacement), name='displacement_input')
 print("displacement_input = ", displacement_input.shape)
+
 # Embedding layer
 embedding_dim = 64  # You can adjust this dimension
 embedding_layer = Dense(64, activation='relu')(displacement_input)  # embedding_dim = 64  # You can adjust this dimension
@@ -77,12 +78,9 @@ distributed_parameters = RepeatVector(sequence_length)(parameters_input)
 concatenated_tensor = concatenate([displacement_input, distributed_parameters], axis=-1)
 print("concatenated_tensor = ", concatenated_tensor.shape)
 
-
-
 # Apply positional encoding
 pos_encoding = get_positional_encoding(sequence_length, embedding_dim)
 embedded_input = embedding_layer + pos_encoding
-
 
 # Apply transformer block
 transformer_outputs = [transformer_block(concatenated_tensor, num_heads=8, ff_dim=200) for _ in range(8)]
@@ -115,7 +113,7 @@ sgd_optimizer = SGD(learning_rate, momentum=0.9)
 model.compile(optimizer=adam_optimizer,
               loss='mse',
               metrics=[MeanAbsoluteError(), MeanSquaredError(), RootMeanSquaredError(), r_square])
-              # metrics=[MeanAbsoluteError(), RootMeanSquaredError()])
+# metrics=[MeanAbsoluteError(), RootMeanSquaredError()])
 
 # ---------------------- Print Model summary ---------------------------------------------
 model.summary()
@@ -140,7 +138,7 @@ history = model.fit(
 
 # ---------------------- Save the model ---------------------------------------------
 # model.save("DNN_Models/DNN_Bi-LSTM(CYCLIC)")  # Save the model after training
-model.save("DNN_Models/DNN_Bi-LSTM(PUSHOVER)test")  # Save the model after training
+# model.save("DNN_Models/DNN_Bi-LSTM(PUSHOVER)test")  # Save the model after training
 
 # ---------------------- Plot Accuracy and Loss ----------------------------------------
 # Find the epoch at which the best performance occurred

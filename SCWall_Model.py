@@ -1,61 +1,47 @@
 import math
+import os
 import time
-import matplotlib.pyplot as plt
+
+import h5py
 import numpy as np
 import openseespy.opensees as ops
-# import vfo.vfo as vfo
-# import opsvis as opsv
+import matplotlib.pyplot as plt
+from collections import defaultdict
+from scipy.io import savemat
+
 from Units import *
 
 
-def reset_analysis():
-    """
-    Resets the analysis by setting time to 0,
-    removing the recorders and wiping the analysis.
-    """
-    ops.setTime(0.0)  # Set the time in the Domain to zero
-    ops.loadConst()  # Set the loads constant in the domain
-    ops.remove('recorders')  # Remove all recorder objects.
-    ops.wipeAnalysis()  # destroy all components of the Analysis object
+tw = 400
+hw = 2600
+lw = 1600
+lbe = 200
+fc = 40
+fyb = 340
+fyw = 340
+rouYb = 0.003
+rouYw = 0.003
+rouXb = 0.003
+rouXw = 0.003
+loadCoeff = 0.1
+unblED = 400
+anclED = 0
+anclPT = 600
+numENT = 9
+numED = 4
+numPT = 2
+locED = [-135, -120, 120, 135]
+locPT = [-100, 100]
+
+
+def build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, numENT, numED, numPT, eleH=16, eleL=8, printProgression=True):
     ops.wipe()
-
-
-def plotting(x_data, y_data, x_label, y_label, title, save_fig=None, plotValidation=True):
-    plt.rcParams.update({'font.size': 14, "font.family": ["Cambria", "Times New Roman"]})
-
-    # Plot Force vs. Displacement
-    plt.figure(figsize=(7, 6), dpi=100)
-    plt.plot(x_data, y_data, color='red', linewidth=1.2, label='Numerical test')
-    plt.axhline(0, color='black', linewidth=0.4)
-    plt.axvline(0, color='black', linewidth=0.4)
-    plt.grid(linestyle='dotted')
-
-    font_settings = {'fontname': 'Cambria', 'size': 14}
-    plt.xlabel(x_label, fontdict=font_settings)
-    plt.ylabel(y_label, fontdict=font_settings)
-    plt.yticks(fontname='Cambria', fontsize=14)
-    plt.xticks(fontname='Cambria', fontsize=14)
-    plt.title(title, fontdict={'fontname': 'Cambria', 'fontstyle': 'normal', 'size': 16})
-    plt.tight_layout()
-    plt.legend()
-    plt.savefig('CyclicValidation/' + title, format='svg', dpi=300, bbox_inches='tight')
-    plt.show()
-
-
-def RebarArea(RebarDiametermm):
-    a = math.pi * (RebarDiametermm / 2) ** 2  # compute area
-    return a
-
-
-def build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, eleH=10, eleL=8, printProgression=True):
-    ops.wipe()
-    ops.model('basic', '-ndm', 2, '-ndf', 3)  # Model of 2 dimensions, 3 dof per node
+    ops.model('Basic', '-ndm', 2, '-ndf', 3)
 
     # ----------------------------------------------------------------------------------------
     # Set geometry, ops.nodes, boundary conditions
     # ----------------------------------------------------------------------------------------
     wall_thickness = tw  # Wall thickness
-    boundary_thickness = tb  # Boundary thickness
     wall_height = hw  # Wall height
     wall_length = lw  # Wall width
     length_be = lbe  # Length of the Boundary Element
@@ -73,32 +59,87 @@ def build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, l
     # ----------------------------------------------------------------------------------------
     # Define Nodes (for MVLEM)
     # ----------------------------------------------------------------------------------------
-    # Loop through the list of node values
-    for i in range(1, eleH + 2):
+    for i in range(2, eleH + 2):
         ops.node(i, 0, (i - 1) * (hw / eleH))
-        # print(i, 0, (i - 1) * (hw / eleH))
-
-    ops.fix(1, 1, 1, 1)  # Fixed condition at node 1
+        print('Node', i, 0, (i - 1) * (hw / eleH))
 
     # ---------------------------------------------------------------------------------------
-    # Define Control Node and DOF
+    # Define Control Node and DOF                                                   ||
     # ---------------------------------------------------------------------------------------
     global ControlNode, ControlNodeDof
     ControlNode = eleH + 1  # Control Node (TopNode)
     ControlNodeDof = 1  # Control DOF 1 = X-direction
+    print('ControlNode', ControlNode)
 
-    # ---------------------------------------------------------------------------------------
-    # Define Axial Load on Top Node
-    # ---------------------------------------------------------------------------------------
-    global Aload  # axial force in N according to ACI318-19 (not considering the reinforced steel at this point for simplicity)
-    Aload = 0.85 * abs(fc) * tw * lw * loadCoeff
+    # Pier 1 base
+    # [96,  97,  98,  99,  100, 101, 102, 103, 104]
+    #   |    |    |    |    |    |    |    |    |
+    # [86,  87,  88,  89,  90,  91,  92,  93,  94]
+
+    bas1botnodes = []
+    bas1topnodes = []
+    top1botnodes = []
+
+    for i in range(0, numENT):
+        bas1botnodes.append(int(86 + i))
+        bas1topnodes.append(int(86 + numENT + 1 + i))
+    # print(bas1botnodes)
+    # print(bas1topnodes)
+
+    for i in range(0, numENT):
+        ops.node(bas1botnodes[i], -lw / 2 + i * lw / (numENT - 1), 0)
+        ops.node(bas1topnodes[i], -lw / 2 + i * lw / (numENT - 1), 0)
+        print('node', bas1botnodes[i], -lw / 2 + i * lw / (numENT - 1), 0)
+        print('node', bas1topnodes[i], -lw / 2 + i * lw / (numENT - 1), 0)
+
+    pie1node = []
+    pie1node.append(bas1topnodes[int((numENT - 1) / 2)])
+    for i in range(1, eleH + 1):
+        pie1node.append(i + 1)
+    print(pie1node)
+
+    # Energy Dissipating Rebars Node
+    for j in range(0, numED):
+        ops.node(200 + j, locED[j], -anclED)
+        ops.node(300 + j, locED[j], unblED)
+        print('node', 200 + j, locED[j], -anclED)
+        print('node', 300 + j, locED[j], unblED)
+
+    # PT Node
+    for j in range(0, numPT):
+        ops.node(400 + j, locPT[j], -anclPT)
+        ops.node(500 + j, locPT[j], hw)
+        print('node', 400 + j, locPT[j], -anclPT)
+        print('node', 500 + j, locPT[j], hw)
+
+    # ------------------------------------------------------------------------
+    # Boundary conditions
+    # ------------------------------------------------------------------------
+    # Constraints of base spring bottom nodes of pier1 and pier2
+    for i in range(0, len(bas1botnodes)):
+        ops.fix(bas1botnodes[i], 1, 1, 1)
+        print('fix', bas1botnodes[i], 1, 1, 1)
+
+    # Constraints of base spring top nodes of pier1 and pier2
+    for i in range(0, 1):
+        ops.fix(bas1topnodes[i], 1, 0, 0)
+        print('fix', bas1topnodes[i], 1, 0, 0)
+
+    # Constraints of ED truss bottom nodes of pier1 and pier2
+    for j in range(0, numED):
+        ops.fix(200 + j, 1, 1, 1)
+        print('fix', 200 + j, 1, 1, 1)
+
+    # Constraints of PT truss bottom nodes of pier1 and pier2
+    for j in range(0, numPT):
+        ops.fix(400 + j, 1, 1, 1)
+        print('fix', 400 + j, 1, 1, 1)
 
     # ---------------------------------------------------------------------------------------
     # Define Steel uni-axial materials
     # ---------------------------------------------------------------------------------------
     sYb = 1
     sYw = 2
-    sX = 3
 
     # STEEL misc
     Es = 200 * GPa  # Young's modulus
@@ -127,25 +168,33 @@ def build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, l
     cR1 = 0.925  # control the transition from elastic to plastic branches
     cR2 = 0.0015  # control the transition from elastic to plastic branches
 
-    # SteelMPF model
-    # ops.uniaxialMaterial('Steel02', sYb, fyYbp, Es, Bs, R0, cR1, cR2)
-    # ops.uniaxialMaterial('Steel02', sYw, fyYwp, Es, Bs, R0, cR1, cR2)
-    # ops.uniaxialMaterial('Steel02', sX, fyXp, Es, Bs, R0, cR1, cR2)
+    # Steel ED
+    IDED = 3
+    fyED = 291
+    EED = 200000
+    b = 0.01
+
+    # Steel PT
+    IDPT = 4
+    fyPT = 1860
+    EPT = 200000
+    a1 = 0
+    a2 = 1
+    a3 = 0
+    a4 = 1
+    sigInit = 750
+
     # SteelMPF model
     ops.uniaxialMaterial('SteelMPF', sYb, fyYbp, fyYbn, Es, bybp, bybn, R0, cR1, cR2)  # Steel Y boundary
     ops.uniaxialMaterial('SteelMPF', sYw, fyYwp, fyYwn, Es, bywp, bywn, R0, cR1, cR2)  # Steel Y web
-    ops.uniaxialMaterial('SteelMPF', sX, fyXp, fyXn, Es, bXp, bXn, R0, cR1, cR2)  # Steel X
-    if printProgression:
-        print('--------------------------------------------------------------------------------------------------')
-        print('SteelMPF', sYb, fyYbp, fyYbn, Es, bybp, bybn, R0, cR1, cR2)  # Steel Y boundary
-        print('SteelMPF', sYw, fyYwp, fyYwn, Es, bywp, bywn, R0, cR1, cR2)  # Steel Y web
-        print('SteelMPF', sX, fyYwp, fyYwn, Es, bXp, bXn, R0, cR1, cR2)  # Steel X
+    ops.uniaxialMaterial('Steel02', IDED, fyED, EED, b, R0, cR1, cR2)  # Steel ED
+    ops.uniaxialMaterial('Steel02', IDPT, fyPT, EPT, b, R0, cR1, cR2, a1, a2, a3, a4, sigInit)  # Steel PT
 
     # ---------------------------------------------------------------------------------------
     # Define "ConcreteCM" uni-axial materials
     # ---------------------------------------------------------------------------------------
-    concWeb = 4
-    concBE = 5
+    concWeb = 5
+    concBE = 6
 
     # ----- unconfined concrete for WEB
     fc0 = abs(fc) * MPa  # Initial concrete strength
@@ -191,14 +240,11 @@ def build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, l
     xcrp = 10000  # cracking strain - tension
 
     # -------------------------- ConcreteCM model --------------------------------------------
-    # ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, et, rt, xcrp, '-GapClose', 0)  # Web (unconfined concrete)
-    # ops.uniaxialMaterial('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, et, rt, xcrp, '-GapClose', 0)  # BE (confined concrete)
     ops.uniaxialMaterial('ConcreteCM', concWeb, fcU, ecU, EcU, rU, xcrnu, ftU, etU, rt, xcrp, '-GapClose', 0)  # Web (unconfined concrete)
     ops.uniaxialMaterial('ConcreteCM', concBE, fcC, ecC, EcC, rC, xcrnc, ftC, etC, rt, xcrp, '-GapClose', 0)  # BE (confined concrete)
-    if printProgression:
-        print('--------------------------------------------------------------------------------------------------')
-        print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, et, rt, xcrp, '-GapClose', 0)  # Web (unconfined concrete)
-        print('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, et, rt, xcrp, '-GapClose', 0)  # BE (confined concrete)
+    print('--------------------------------------------------------------------------------------------------')
+    print('ConcreteCM', concWeb, fcU, ecU, EcU, ru, xcrnu, ftU, et, rt, xcrp, '-GapClose', 0)  # Web (unconfined concrete)
+    print('ConcreteCM', concBE, fcC, ecC, EcC, rc, xcrnc, ftC, et, rt, xcrp, '-GapClose', 0)  # BE (confined concrete)
 
     # ----------------------------Shear spring for MVLEM-------------------------------------
     Ac = lw * tw  # Concrete Wall Area
@@ -206,74 +252,89 @@ def build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, l
     Kshear = Ac * Gc * (5 / 6)  # Shear stiffness k * A * G ---> k=5/6
 
     # Shear Model for Section Aggregator to assign for MVLEM element shear spring
-    ops.uniaxialMaterial('Elastic', 6, Kshear)
+    ops.uniaxialMaterial('Elastic', 7, Kshear)
 
-    # ---- Steel in Y direction (BE + Web) -------------------------------------------
-    if printProgression:
-        print('rouYb =', rouYb)
-        print('rouYw =', rouYw)
+    # Define ENT Material
+    IDENT = 9
+    EENT = 2.5 * 32500.0 * lw * tw / (hw * numENT)
+    ops.uniaxialMaterial('ENT', IDENT, EENT)
 
-    # ---- Steel in X direction (BE + Web) -------------------------------------------
-    if printProgression:
-        print('rouXb =', rouXb)
-        print('rouXw =', rouXw)
-
-    # ---------------------------------------------------------------------------------------
-    # Define FSAM nDMaterial
-    # ---------------------------------------------------------------------------------------
-    matBE = 7
-    matWeb = 8
-
-    # FSAM model
-    nu = 0.2  # friction coefficient
-    alfadow = 0.012  # dowel action stiffness parameter
-    ops.nDMaterial('FSAM', matBE, 0.0, sX, sYb, concBE, rouXb, rouYb, nu, alfadow)  # Boundary (confined concrete)
-    ops.nDMaterial('FSAM', matWeb, 0.0, sX, sYw, concWeb, rouXw, rouYw, nu, alfadow)  # Web (unconfined concrete)
-    if printProgression:
-        print('--------------------------------------------------------------------------------------------------')
-        print('FSAM', matBE, 0.0, sX, sYb, concBE, rouXb, rouYb, nu, alfadow)  # Boundary (confined concrete)
-        print('FSAM', matWeb, 0.0, sX, sYw, concWeb, rouXw, rouYw, nu, alfadow)  # Web (unconfined concrete)
-        print('--------------------------------------------------------------------------------------------------')
-
-    # --------------------------------------------------------------------------------
-    #  Define 'MVLEM' elements
-    # --------------------------------------------------------------------------------
-    # Set 'MVLEM' parameters thick, width, rho, matConcrete, matSteel
-    MVLEM_thick = [tb if i in (0, n - 1) else tw for i in range(n)]
+    # ------------------------------
+    #  Define SFI_MVLEM elements
+    # ------------------------------
+    MVLEM_thick = [tw] * n
     MVLEM_width = [lbe if i in (0, n - 1) else elelweb for i in range(n)]
-    MVLEM_mat = [matBE if i in (0, n - 1) else matWeb for i in range(n)]
-
-    # MVLEM_rho = [rouYb if i in (0, n - 1) else rouYw for i in range(n)]
-    # MVLEM_matConcrete = [concBE if i in (0, n - 1) else concWeb for i in range(n)]
-    # MVLEM_matSteel = [sYb if i in (0, n - 1) else sYw for i in range(n)]
+    MVLEM_rho = [rouYb if i in (0, n - 1) else rouYw for i in range(n)]
+    MVLEM_matConcrete = [concBE if i in (0, n - 1) else concWeb for i in range(n)]
+    MVLEM_matSteel = [sYb if i in (0, n - 1) else sYw for i in range(n)]
 
     for i in range(eleH):
         # ------------------ MVLEM ----------------------------------------------
-        # ops.element('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 6)
-        # print('MVLEM', i + 1, 0.0, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 6)
+        ops.element('MVLEM', i + 101, 0.0, pie1node[i], pie1node[i + 1], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 7)
+        print('element', 'MVLEM', i + 101, pie1node[i], pie1node[i + 1], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-rho', *MVLEM_rho, '-matConcrete', *MVLEM_matConcrete, '-matSteel', *MVLEM_matSteel, '-matShear', 7)
 
-        # ---------------- SFI_MVLEM -------------------------------------------
-        ops.element('SFI_MVLEM', i + 1, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
-        if printProgression:
-            print('SFI_MVLEM', i + 1, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
+    # Define Zero-Length Element
+    for i in range(0, numENT):
+        ops.element('zeroLength', i + 601, bas1botnodes[i], bas1topnodes[i], '-mat', IDENT, '-dir', 2)
+        print('zeroLength', i + 601, bas1botnodes[i], bas1topnodes[i], '-mat', IDENT, '-dir', 2)
 
-        # ops.element('E_SFI', i + 1, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
-        # print('E_SFI', i + 1, *[i + 1, i + 2], eleL, 0.4, '-thick', *MVLEM_thick, '-width', *MVLEM_width, '-mat', *MVLEM_mat)
+    geomTransfTag_PDelta = 1
+    ops.geomTransf('PDelta', geomTransfTag_PDelta)
+    for i in range(0, numENT - 1):
+        ops.element('elasticBeamColumn', i + 1601, bas1topnodes[i], bas1topnodes[i + 1], 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+        print('elasticBeamColumn', i + 1601, bas1topnodes[i], bas1topnodes[i + 1], 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
 
-    parameter_values = [tw, tb, hw, lw, lbe, fc, fyb, fyw, round(rouYb, 4), round(rouYw, 4), round(rouXb, 4), round(rouXw, 4), loadCoeff]
+    # Define ED elements
+    EDas = 314.11
+    for i in range(0, numED):
 
-    if printProgression:
-        print('--------------------------------------------------------------------------------------------------')
-        print("\033[92mModel Built Successfully --> Using the following parameters :", parameter_values, "\033[0m")
-        print('--------------------------------------------------------------------------------------------------')
+    for i in range(num_elements):
+        ops.element('truss', 203 + i, 202 + i, 302 + i, EDas[i], IDED[i])
+
+        ops.element('truss', 201, 200, 300, EDas, IDED)
+        ops.element('truss', 202, 201, 301, EDas, IDED)
+        ops.element('truss', 203, 202, 302, EDas, IDED)
+        ops.element('truss', 204, 203, 303, EDas, IDED)
+    ops.element('elasticBeamColumn', 211, 300, 301, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+    ops.element('elasticBeamColumn', 212, 301, 2, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+    ops.element('elasticBeamColumn', 213, 2, 302, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+    ops.element('elasticBeamColumn', 214, 302, 303, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+
+    # print('element', 'truss', 201, 100, 200, 314.11 * 2, IDED)
+    # print('element', 'truss', 202, 101, 201, 314.11 * 2, IDED)
+    # print('element', 'truss', 203, 102, 202, 353.37 * 1, IDED)
+    # print('element', 'truss', 204, 103, 203, 353.37 * 1, IDED)
+    # print('element', 'elasticBeamColumn', 211, 200, 201, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+    # print('element', 'elasticBeamColumn', 212, 201, 2, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+    # print('element', 'elasticBeamColumn', 213, 2, 202, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+    # print('element', 'elasticBeamColumn', 214, 202, 203, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+
+    # Define PT elements
+    PTas = 280
+    ops.element('truss', 301, 400, 500, PTas, IDPT)
+    ops.element('truss', 302, 401, 501, PTas, IDPT)
+    ops.element('elasticBeamColumn', 311, 500, pie1node[-1], 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+    ops.element('elasticBeamColumn', 312, pie1node[-1], 501, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+
+    # print('element', 'truss', 301, 300, 400, 280, IDPT)
+    # print('element', 'truss', 302, 301, 401, 280, IDPT)
+    # print('element', 'elasticBeamColumn', 311, 400, pie1node[-1], 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+    # print('element', 'elasticBeamColumn', 312, pie1node[-1], 401, 1e5, 3.0e11, 9.0e4, geomTransfTag_PDelta)
+
+    # ---------------------------------------------------------------------------------------
+    # Define Axial Load on Top Node
+    # ---------------------------------------------------------------------------------------
+    global Aload  # axial force in N according to ACI318-19 (not considering the reinforced steel at this point for simplicity)
+    Aload = 0.85 * abs(fc) * tw * lw * loadCoeff
+    # print('Axial load fc(kN) = ', Aload / 1000)
 
 
 def run_gravity(steps=10, printProgression=True):
     if printProgression:
         print("RUNNING GRAVITY ANALYSIS")
-    ops.timeSeries('Linear', 1, '-factor', 1.0)
+    ops.timeSeries('Linear', 1)
     ops.pattern('Plain', 1, 1)
-    ops.load(ControlNode, *[0.0, -Aload, 0.0])  # apply vertical load
+    ops.load(ControlNode, 0, -Aload, 0)
     ops.constraints('Transformation')
     ops.numberer('RCM')
     ops.system('BandGeneral')
@@ -285,6 +346,85 @@ def run_gravity(steps=10, printProgression=True):
     ops.loadConst('-time', 0.0)  # hold gravity constant and restart time for further analysis
     if printProgression:
         print("GRAVITY ANALYSIS DONE!")
+
+
+def cyclic(displacement):
+    dataDir = 'DCRP_1_cyclic'
+    # os.chdir('..')
+    if not os.path.exists(dataDir):
+        os.mkdir(dataDir)
+    os.chdir(dataDir)
+
+    ops.recorder('Node', '-file', f'MVLEM_Dtop.txt', '-time', '-node', ControlNode, '-dof', 1, 'disp')
+    ops.timeSeries('Linear', 2)
+    ops.pattern('Plain', 2, 2)
+    ops.load(ControlNode, 1000, 0, 0)
+    ops.constraints('Penalty', 1e20, 1e20)
+    ops.numberer('RCM')
+    ops.system('BandGen')
+    ops.test('NormDispIncr', 1e-3, 100)
+    ops.algorithm('KrylovNewton')
+    ops.analysis('Static')
+
+    RESULTS = defaultdict(lambda: [])
+
+    # int(50), int(100), int(150), int(200), int(300), int(400), int(500), int(600), int(800), int(1000)
+
+    for k in range(0, len(displacement)):
+        disp = displacement[k]
+        ops.integrator('DisplacementControl', ControlNode, 1, 0.1)
+        for i in range(0, disp):
+            ops.analyze(1)
+            # save_result(RESULTS, numENT, element_length)
+            f = ops.nodeDisp(ControlNode, 1)
+            p = i / disp * 25
+            print("1Cycle", k + 1, "/", len(displacement), "Disp = ", '{:.2f}'.format(f), "mm", "------- Processing", '{:.2f}'.format(p), "%-------")
+        ops.integrator('DisplacementControl', ControlNode, 1, -0.1)
+        for i in range(0, disp):
+            ops.analyze(1)
+            # save_result(RESULTS, numENT, element_length)
+            f = ops.nodeDisp(ControlNode, 1)
+            p = i / disp * 25 + 25
+            print("1Cycle", k + 1, "/", len(displacement), "Disp = ", '{:.2f}'.format(f), "mm", "------- Processing", '{:.2f}'.format(p), "%-------")
+        ops.integrator('DisplacementControl', ControlNode, 1, -0.1)
+        for i in range(0, disp):
+            ops.analyze(1)
+            # save_result(RESULTS, numENT, element_length)
+            f = ops.nodeDisp(ControlNode, 1)
+            p = i / disp * 25 + 50
+            print("1Cycle", k + 1, "/", len(displacement), "Disp = ", '{:.2f}'.format(f), "mm", "------- Processing", '{:.2f}'.format(p), "%-------")
+        ops.integrator('DisplacementControl', ControlNode, 1, 0.1)
+        for i in range(0, disp):
+            ops.analyze(1)
+            # save_result(RESULTS, numENT, element_length)
+            f = ops.nodeDisp(ControlNode, 1)
+            p = i / disp * 25 + 75
+            print("1Cycle", k + 1, "/", len(displacement), "Disp = ", '{:.2f}'.format(f), "mm", "------- Processing", '{:.2f}'.format(p), "%-------")
+
+    print("Done Cyclic analysis")
+
+    #print(RESULTS.keys())
+    for key, value in RESULTS.items():
+        RESULTS[key] = np.array(value)
+
+    file_path = "Result.hdf5"
+    with h5py.File(file_path, "w") as f:
+        for key, value in RESULTS.items():
+            f.create_dataset(key, data=value)
+
+    file_path2 = "Result.mat"
+    savemat(file_path2, RESULTS)
+    print("Done Saving Data")
+    os.chdir('..')
+
+
+build_model(tw, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, loadCoeff, numENT, numED, numPT, eleH=16, eleL=8, printProgression=True)
+run_gravity()
+cyclic(displacement=[int(50), int(100), int(150), int(200), int(300), int(400), int(500), int(600), int(800), int(1000)])
+
+
+# Run_DCRP1_cyclic(displacement = [int(50), int(100), int(150), int(200), int(300), int(400), int(500), int(600), int(800), int(1000)])
+#
 
 
 def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, recordData=False):
@@ -326,7 +466,7 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         #     ok = analysisLoopDisp(ok, j, Dincr, ControlNode, ControlNodeDof)
         # if ok != 0:
         #     print("Problem running Cyclic analysis for the model : Ending analysis ")
-            # break
+        # break
         # else:
         D0 = D1  # move to next step
 
@@ -339,7 +479,6 @@ def run_cyclic(DisplacementStep, plotResults=True, printProgression=True, record
         if printProgression:
             print(f'\033[92m InputDisplacement {j} = {DisplacementStep[j]}\033[0m')
             print(f'\033[91mOutputDisplacement {j} = {dispData[j + 1]}\033[0m')
-
 
     # if printProgression:
     #     toc = time.time()

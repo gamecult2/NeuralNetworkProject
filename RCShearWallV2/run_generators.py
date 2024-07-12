@@ -8,7 +8,7 @@ def run_generator(instance_id, start_index, end_index):
 
 
 if __name__ == "__main__":
-    num_samples = 160  # Total number of samples
+    num_samples = 160000  # Total number of samples
     num_processes = multiprocessing.cpu_count()  # Number of available CPU cores
 
     samples_per_process = num_samples // num_processes

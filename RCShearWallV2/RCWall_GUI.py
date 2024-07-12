@@ -137,7 +137,7 @@ class ShearWallAnalysisApp(tk.Tk):
             "n": (1, 20),
             "r": (1, 10),
             "D0": (0, 10),
-            "Dm": (10, 100)}
+            "Dm": (10, 160)}
 
         for param, var in self.cyclic_params.items():
             param_frame = tk.Frame(cyclic_frame)

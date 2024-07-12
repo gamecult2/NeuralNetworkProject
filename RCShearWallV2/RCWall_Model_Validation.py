@@ -1134,6 +1134,7 @@ validation_model = Thomsen_and_Wallace_RW2()
 
 
 tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, DisplacementStep = validation_model
+print(validation_model)
 
 Aload = 0.85 * abs(fc) * tw * lw * loadCoeff
 # print('Axial load (kN) = ', Aload / 1000)
@@ -1141,17 +1142,23 @@ Aload = 0.85 * abs(fc) * tw * lw * loadCoeff
 max_displacement = max(DisplacementStep)
 DispIncr = max_displacement / 1000
 #  ---------------- RUN CYCLIC ANALYSIS ---------------------------------------------------------------
+# Start timer
+start_time = time.time()
 rcmodel.build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff, printProgression=False)
 rcmodel.run_gravity(printProgression=False)
-[x, y] = rcmodel.run_cyclic2(DisplacementStep, plotResults=False, printProgression=False, recordData=False)
-# Find the index of the maximum y value
-max_y_index = np.argmax(y)
-# Get the corresponding x value
-max_x_value = x[max_y_index]
-print('Maximum Base Shear:', np.max(y))
-print('Corresponding Displacement (x):', max_x_value)
+y = rcmodel.run_cyclic2(DisplacementStep, printProgression=False)
 rcmodel.reset_analysis()
-plotting(x, y, 'Displacement (mm)', 'Base Shear (kN)', f'{name}', save_fig=False, plotValidation=True)
+# Stop timer
+end_time = time.time()
+# Print total execution time
+total_time = end_time - start_time
+print(f"Total execution time (main process): {total_time:.2f} seconds")
+# Find the index of the maximum y value and the corresponding x value
+# max_y_index = np.argmax(y)
+# max_x_value = x[max_y_index]
+# print('Maximum Base Shear:', np.max(y))
+# print('Corresponding Displacement (x):', max_x_value)
+plotting(DisplacementStep[:-1], y[1:], 'Displacement (mm)', 'Base Shear (kN)', f'{name}', save_fig=False, plotValidation=True)
 
 # ---------------- RUN PUSHOVER ANALYSIS ---------------------------------------------------------------
 # rcmodel.build_model(tw, tb, hw, lw, lbe, fc, fyb, fyw, rouYb, rouYw, rouXb, rouXw, loadCoeff)
