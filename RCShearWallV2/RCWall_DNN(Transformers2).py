@@ -30,6 +30,22 @@ def transformer_block(inputs, num_heads, ff_dim):
     return LayerNormalization(epsilon=1e-6)(add([out1, ffn_output]))
 
 
+# Transformer block
+def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
+    # Multi-head attention
+    x = LayerNormalization(epsilon=1e-6)(inputs)
+    x = MultiHeadAttention(key_dim=head_size, num_heads=num_heads, dropout=dropout)(x, x)
+    x = Dropout(dropout)(x)
+    res = x + inputs
+
+    # Feed-forward layer
+    x = LayerNormalization(epsilon=1e-6)(res)
+    x = Dense(ff_dim, activation="relu")(x)
+    x = Dropout(dropout)(x)
+    x = Dense(inputs.shape[-1])(x)
+    return x + res
+
+
 # Positional encoding function
 def get_positional_encoding(sequence_length, embedding_dim):
     positions = np.arange(sequence_length)[:, np.newaxis]
@@ -68,31 +84,21 @@ parameters_input = Input(shape=(num_features_input_parameters,), name='parameter
 displacement_input = Input(shape=(None, num_features_input_displacement), name='displacement_input')
 print("displacement_input = ", displacement_input.shape)
 
-# Embedding layer
-embedding_dim = 64  # You can adjust this dimension
-embedding_layer = Dense(64, activation='relu')(displacement_input)  # embedding_dim = 64  # You can adjust this dimension
-print("embedding_layer = ", embedding_layer.shape)
-
 distributed_parameters = RepeatVector(sequence_length)(parameters_input)
 
 concatenated_tensor = concatenate([displacement_input, distributed_parameters], axis=-1)
 print("concatenated_tensor = ", concatenated_tensor.shape)
 
-# Apply positional encoding
-pos_encoding = get_positional_encoding(sequence_length, embedding_dim)
-embedded_input = embedding_layer + pos_encoding
+# Transformer layers
+x = transformer_encoder(concatenated_tensor, head_size=64, num_heads=4, ff_dim=256, dropout=0.1)
+x = transformer_encoder(x, head_size=64, num_heads=4, ff_dim=256, dropout=0.1)
+x = transformer_encoder(x, head_size=64, num_heads=4, ff_dim=256, dropout=0.1)
 
-# Apply transformer block
-transformer_outputs = [transformer_block(concatenated_tensor, num_heads=8, ff_dim=200) for _ in range(8)]
-
-# Concatenate the outputs of the 8 transformer blocks
-concatenated_transformers = concatenate(transformer_outputs, axis=-1)
-
-# Flatten transformer output and pass through dense layers
-dense1 = Dense(100, kernel_regularizer=l2(0.01))(concatenated_transformers)
+# Dense layers
+dense1 = Dense(200, activation='tanh', kernel_regularizer=l2(0.001))(x)
 dropout1 = Dropout(0.2)(dense1)
 
-dense2 = Dense(100, kernel_regularizer=l2(0.01))(dropout1)
+dense2 = Dense(100, activation='tanh', kernel_regularizer=l2(0.001))(dropout1)
 dropout2 = Dropout(0.2)(dense2)
 
 # ---------------------- Output layer --------------------------------------------
